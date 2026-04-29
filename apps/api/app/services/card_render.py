@@ -221,3 +221,114 @@ def _fmt_count(n: int) -> str:
         v = n / 1000.0
         return f"{v:.1f}K".replace(".0K", "K")
     return str(n)
+
+
+def _draw_header(
+    img: Image.Image, draw: ImageDraw.ImageDraw,
+    primary_rgb: tuple[int, int, int], secondary_rgb: tuple[int, int, int],
+    right_text: str,
+) -> None:
+    draw.rectangle([(0, 0), (CARD_W, HEADER_H)], fill=primary_rgb)
+    _halftone_overlay(img.crop((0, 0, CARD_W, HEADER_H)), INK, spacing=6)
+    wm_font = ImageFont.truetype(FONT_DISPLAY, 44)
+    draw.text((PADDING, HEADER_H // 2 - 26), "MOANY", fill=secondary_rgb, font=wm_font)
+    moany_w = draw.textlength("MOANY", font=wm_font)
+    chip_x = PADDING + moany_w + 6
+    chip_w = draw.textlength("FANS", font=wm_font) + 16
+    draw.rectangle(
+        [(chip_x, HEADER_H // 2 - 22), (chip_x + chip_w, HEADER_H // 2 + 26)],
+        fill=(230, 57, 70),
+    )
+    draw.text((chip_x + 8, HEADER_H // 2 - 26), "FANS", fill=CREAM, font=wm_font)
+    if right_text:
+        right_font = ImageFont.truetype(FONT_DISPLAY, 32)
+        rw = draw.textlength(right_text, font=right_font)
+        draw.text(
+            (CARD_W - PADDING - rw, HEADER_H // 2 - 18),
+            right_text, fill=secondary_rgb, font=right_font,
+        )
+
+
+def render_recap_card(
+    *, headline: str, score_line: str,
+    home_primary: str | None, away_primary: str | None,
+) -> bytes:
+    img = Image.new("RGBA", (CARD_W, CARD_H), CREAM + (255,))
+    draw = ImageDraw.Draw(img)
+    home_rgb = _hex_to_rgb(home_primary) if home_primary else INK
+    away_rgb = _hex_to_rgb(away_primary) if away_primary else INK
+    # Split header: home colour left half, away colour right half
+    draw.rectangle([(0, 0), (CARD_W // 2, HEADER_H)], fill=home_rgb)
+    draw.rectangle([(CARD_W // 2, 0), (CARD_W, HEADER_H)], fill=away_rgb)
+    _halftone_overlay(img.crop((0, 0, CARD_W, HEADER_H)), INK, spacing=6)
+    wm_font = ImageFont.truetype(FONT_DISPLAY, 40)
+    draw.text((PADDING, HEADER_H // 2 - 22), "MOANYFANS · MATCH RECAP",
+              fill=CREAM, font=wm_font)
+
+    # Score line
+    score_font = ImageFont.truetype(FONT_DISPLAY, 56)
+    sw = draw.textlength(score_line, font=score_font)
+    draw.text(((CARD_W - sw) // 2, HEADER_H + 40), score_line, fill=INK, font=score_font)
+
+    # Headline
+    body_top = HEADER_H + 130
+    body_bottom = CARD_H - 60
+    body_font, lines = _fit_font_size(
+        draw, headline, FONT_DISPLAY,
+        max_width=CARD_W - 2 * PADDING,
+        max_height=body_bottom - body_top,
+        max_size=84, min_size=40,
+    )
+    line_h = body_font.size * 1.1
+    y = body_top
+    for ln in lines:
+        lw = draw.textlength(ln, font=body_font)
+        draw.text(((CARD_W - lw) // 2, y), ln, fill=INK, font=body_font)
+        y += int(line_h)
+
+    domain_font = ImageFont.truetype(FONT_MONO, 14)
+    draw.text(
+        (CARD_W - PADDING - 130, CARD_H - 24),
+        "MOANYFANS.COM", fill=INK, font=domain_font,
+    )
+    out = io.BytesIO()
+    img.convert("RGB").save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
+def render_rivalry_card(
+    *, home_short: str, away_short: str,
+    home_primary: str | None, away_primary: str | None,
+) -> bytes:
+    img = Image.new("RGBA", (CARD_W, CARD_H), CREAM + (255,))
+    draw = ImageDraw.Draw(img)
+    home_rgb = _hex_to_rgb(home_primary) if home_primary else INK
+    away_rgb = _hex_to_rgb(away_primary) if away_primary else INK
+    # Big diagonal split
+    draw.rectangle([(0, 0), (CARD_W // 2, CARD_H)], fill=home_rgb)
+    draw.rectangle([(CARD_W // 2, 0), (CARD_W, CARD_H)], fill=away_rgb)
+    _halftone_overlay(img, INK, spacing=10)
+
+    title_font = ImageFont.truetype(FONT_DISPLAY, 180)
+    vs_font = ImageFont.truetype(FONT_DISPLAY, 100)
+    draw.text((PADDING, CARD_H // 2 - 90),
+              home_short.upper(), fill=CREAM, font=title_font)
+    away_w = draw.textlength(away_short.upper(), font=title_font)
+    draw.text((CARD_W - PADDING - away_w, CARD_H // 2 - 90),
+              away_short.upper(), fill=CREAM, font=title_font)
+    vs_w = draw.textlength("VS", font=vs_font)
+    # Red chip behind VS
+    cx = CARD_W // 2
+    cy = CARD_H // 2
+    draw.rectangle([(cx - vs_w // 2 - 16, cy - 50), (cx + vs_w // 2 + 16, cy + 50)],
+                   fill=(230, 57, 70))
+    draw.text((cx - vs_w // 2, cy - 56), "VS", fill=CREAM, font=vs_font)
+
+    foot_font = ImageFont.truetype(FONT_MONO, 22)
+    foot = "MOANYFANS · UK FOOTBALL RIVALRY"
+    fw = draw.textlength(foot, font=foot_font)
+    draw.text(((CARD_W - fw) // 2, CARD_H - 50), foot, fill=CREAM, font=foot_font)
+
+    out = io.BytesIO()
+    img.convert("RGB").save(out, format="PNG", optimize=True)
+    return out.getvalue()

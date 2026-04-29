@@ -269,7 +269,8 @@ async def _apply_live_update(
             f"{fixture_row['away_short']} fans on their feet, "
             f"{fixture_row['home_short']} fans crying into their pies.")
         posted += 1
-    if prev_status == "LIVE" and new_status == "FT":
+    became_ft = prev_status == "LIVE" and new_status == "FT"
+    if became_ft:
         verdict = "draw" if new_home == new_away else (
             f"{fixture_row['home_short']} edge it" if new_home > new_away
             else f"{fixture_row['away_short']} steal it"
@@ -283,6 +284,18 @@ async def _apply_live_update(
         "UPDATE fixtures SET status = $1, home_score = $2, away_score = $3 WHERE id = $4",
         new_status, new_home, new_away, fid,
     )
+
+    if became_ft:
+        # Generate recap + hot take. Best-effort, don't fail the live tick.
+        from . import house_ai, recap_gen
+        try:
+            await recap_gen.generate_recap_for_fixture(conn, fid)
+        except Exception:
+            log.exception("recap_hook_failed", fixture_id=fid)
+        try:
+            await house_ai.hot_take_for_fixture(conn, fid)
+        except Exception:
+            log.exception("hot_take_hook_failed", fixture_id=fid)
     return posted
 
 

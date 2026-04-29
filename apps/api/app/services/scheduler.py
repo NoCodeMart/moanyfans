@@ -18,9 +18,14 @@ from datetime import UTC, datetime
 import asyncpg
 import structlog
 
+from . import house_ai
+
 log = structlog.get_logger(__name__)
 
 INTERVAL_SECONDS = 30
+HOUSE_AI_EVERY_TICKS = 10  # ~5 minutes between house AI sweeps
+RAGE_RANKER_DAY = 6  # Sunday (Mon=0)
+RAGE_RANKER_HOUR = 19  # 19:00 UTC
 
 
 async def _close_expired_battles(conn: asyncpg.Connection) -> int:
@@ -54,6 +59,8 @@ async def _advance_fixtures(conn: asyncpg.Connection) -> tuple[int, int]:
 
 async def run(pool: asyncpg.Pool) -> None:
     log.info("scheduler_starting")
+    tick = 0
+    last_rage_ranker_day: tuple[int, int] | None = None  # (iso_year, iso_week)
     while True:
         try:
             async with pool.acquire() as conn:
@@ -66,6 +73,32 @@ async def run(pool: asyncpg.Pool) -> None:
                     fixtures_started=started,
                     fixtures_finished=finished,
                 )
+
+            # House AI sweep — every ~5 minutes catch any FT fixtures whose
+            # hot take didn't fire during live polling (e.g. polling missed FT).
+            if tick % HOUSE_AI_EVERY_TICKS == 0:
+                try:
+                    posted = await house_ai.hot_takes_for_recent_ft(pool)
+                    if posted:
+                        log.info("hot_takes_swept", posted=posted)
+                except Exception:
+                    log.exception("hot_takes_sweep_failed")
+
+            # Weekly RAGE_RANKER — Sunday evening, once per ISO week.
+            now = datetime.now(UTC)
+            iso_year, iso_week, weekday = now.isocalendar()
+            wk = (iso_year, iso_week)
+            if (
+                weekday - 1 == RAGE_RANKER_DAY
+                and now.hour >= RAGE_RANKER_HOUR
+                and last_rage_ranker_day != wk
+            ):
+                try:
+                    if await house_ai.rage_ranker_weekly(pool):
+                        last_rage_ranker_day = wk
+                except Exception:
+                    log.exception("rage_ranker_failed")
         except Exception:  # noqa: BLE001
             log.exception("scheduler_error")
+        tick += 1
         await asyncio.sleep(INTERVAL_SECONDS)

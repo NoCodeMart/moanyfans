@@ -197,6 +197,10 @@ async def sitemap(request: Request) -> Response:
             cutoff,
         )
         team_rows = await conn.fetch("SELECT slug FROM teams ORDER BY league, name")
+        recap_rows = await conn.fetch(
+            "SELECT fixture_id::text AS id, created_at FROM match_recaps "
+            "ORDER BY created_at DESC LIMIT 2000",
+        )
 
     parts = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
@@ -204,6 +208,23 @@ async def sitemap(request: Request) -> Response:
     for t in team_rows:
         parts.append(
             f"<url><loc>{settings.web_public_base}/?team={t['slug']}</loc>"
+            f"<priority>0.7</priority></url>"
+        )
+
+    # Rivalry pages — every unique alphabetical pair (5,356 for 104 clubs).
+    slugs = [t["slug"] for t in team_rows]
+    for i in range(len(slugs)):
+        for j in range(i + 1, len(slugs)):
+            a, b = sorted([slugs[i], slugs[j]])
+            parts.append(
+                f"<url><loc>{settings.api_public_base}/r/{a}-vs-{b}</loc>"
+                f"<priority>0.5</priority></url>"
+            )
+
+    for r in recap_rows:
+        parts.append(
+            f"<url><loc>{settings.api_public_base}/recap/{r['id']}</loc>"
+            f"<lastmod>{r['created_at'].date().isoformat()}</lastmod>"
             f"<priority>0.7</priority></url>"
         )
     for r in rows:
