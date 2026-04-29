@@ -1137,6 +1137,8 @@ body[data-dark="1"] {
 
 /* Phone: stack everything, hide sidebar nav (use mobile drawer + bottom tab bar) */
 @media (max-width: 760px) {
+  /* Force a sane base font size on phones — compact density was making text 14px */
+  .app, .app[data-density="compact"], .app[data-density="comfy"] { font-size: 16px; }
   .app { grid-template-columns: 1fr; }
 
   .masthead { padding: 8px 12px 0; }
