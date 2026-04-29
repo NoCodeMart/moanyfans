@@ -2,9 +2,12 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Ticker, Wordmark } from './components/Brand';
 import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from './components/Live';
 import { BattlesPage, LiveMoanAlong } from './components/LivePages';
+import { Landing } from './components/Landing';
 import { LegalLayer, type LegalView } from './components/LegalLayer';
 import { Leaderboards, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
+
+const VISITED_KEY = 'moanyfans:visited';
 
 type Palette = { red: string; orange: string; yellow: string; blue: string };
 const PALETTES: Record<string, Palette> = {
@@ -55,6 +58,26 @@ export default function App() {
   const [palette, setPalette] = useState<keyof typeof PALETTES>('neon');
   const [activeMoan, setActiveMoan] = useState<string | null>(() => readMoanIdFromUrl());
   const [legalView, setLegalView] = useState<LegalView>(null);
+  const [showLanding, setShowLanding] = useState<boolean>(() => {
+    if (readMoanIdFromUrl()) return false;
+    if (window.location.search.includes('app=1')) return false;
+    return localStorage.getItem(VISITED_KEY) !== '1';
+  });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const enterApp = () => {
+    localStorage.setItem(VISITED_KEY, '1');
+    setShowLanding(false);
+  };
+
+  if (showLanding) {
+    return (
+      <>
+        <Landing onEnter={enterApp} onLegal={(v) => setLegalView(v)} />
+        <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
+      </>
+    );
+  }
   const { user, authEnabled, signInUrl } = useCurrentUser();
   const headline = 'BIN THE LOT';
   const density: 'compact' | 'regular' | 'comfy' = 'compact';
@@ -92,7 +115,13 @@ export default function App() {
     <div className="app" data-density={density}>
       <header className="masthead">
         <div className="masthead-row">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              type="button"
+              className="mobile-menu-btn"
+              aria-label="Open menu"
+              onClick={() => setDrawerOpen(true)}
+            >☰</button>
             <Wordmark size={28} primary="var(--cream)" accent="var(--red)" spin={false} />
             <span className="masthead-issue">
               <span>VOL. III · NO. 287</span>
@@ -310,6 +339,8 @@ export default function App() {
           display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6,
         }}>
           <span>MOANYFANS™ · NO MERCY POLICY ·</span>
+          <button type="button" onClick={() => { localStorage.removeItem(VISITED_KEY); setShowLanding(true); }} className="footer-link">HOME</button>
+          <span>·</span>
           <button type="button" onClick={() => setLegalView('terms')} className="footer-link">TERMS</button>
           <span>·</span>
           <button type="button" onClick={() => setLegalView('privacy')} className="footer-link">PRIVACY</button>
@@ -320,6 +351,70 @@ export default function App() {
 
       <Composer open={composerOpen} onClose={() => setComposerOpen(false)} />
       <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
+
+      {drawerOpen && (
+        <>
+          <div className="mobile-drawer-backdrop" onClick={() => setDrawerOpen(false)} />
+          <div className="mobile-drawer" role="dialog" aria-modal="true">
+            <div style={{ display: 'flex', justifyContent: 'space-between',
+                            alignItems: 'center', marginBottom: 16 }}>
+              <Wordmark size={22} primary="var(--ink)" accent="var(--red)" spin={false} />
+              <button
+                type="button" aria-label="Close menu"
+                onClick={() => setDrawerOpen(false)}
+                style={{
+                  background: 'var(--ink)', color: 'var(--cream)', border: 0,
+                  width: 32, height: 32, fontSize: 18, cursor: 'pointer',
+                }}
+              >×</button>
+            </div>
+            {NAV_ITEMS.map(n => (
+              <button
+                key={n.id}
+                type="button"
+                className={'nav-item' + (route === n.id ? ' active' : '')}
+                onClick={() => { setRoute(n.id); setDrawerOpen(false); setActiveMoan(null); }}
+              >
+                <span className="nav-item-icon">{n.icon}</span>
+                <span style={{ flex: 1 }}>{n.label}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              className="nav-cta"
+              onClick={() => { setComposerOpen(true); setDrawerOpen(false); }}
+            >FILE A MOAN</button>
+          </div>
+        </>
+      )}
+
+      {/* Mobile bottom tabs */}
+      <nav className="bottom-tabs" aria-label="Primary">
+        {([
+          { id: 'feed' as Route, icon: 'F', label: 'FEED' },
+          { id: 'live' as Route, icon: '●', label: 'LIVE' },
+          { id: 'teams' as Route, icon: '⚑', label: 'CLUBS' },
+          { id: 'profile' as Route, icon: '@', label: 'YOU' },
+        ]).map(t => (
+          <button
+            key={t.id}
+            type="button"
+            className={'bottom-tab' + (route === t.id ? ' active' : '')}
+            onClick={() => { setRoute(t.id); setActiveMoan(null); }}
+          >
+            <span className="bt-icon">{t.icon}</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
+        <button
+          type="button" className="bottom-tab"
+          onClick={() => setComposerOpen(true)}
+          style={{ color: 'var(--red)' }}
+        >
+          <span className="bt-icon">+</span>
+          <span>MOAN</span>
+        </button>
+      </nav>
     </div>
   );
 }
