@@ -204,15 +204,19 @@ async def stream_events(fixture_id: str, request: Request) -> StreamingResponse:
     pool = request.app.state.pool
 
     async def gen() -> AsyncIterator[bytes]:
-        last_cursor = datetime.now(UTC) - timedelta(minutes=5)
-        # First flush: initial backfill of recent events
+        # Send a comment first to flush response headers through any
+        # buffering proxy (Traefik/nginx) before any data work happens.
+        yield b": connected\n\n"
+        # Initial backfill: ALL events for this fixture so the client sees
+        # the full match story on first connect, not just the last few minutes.
         async with pool.acquire() as conn:
             init = await conn.fetch(
                 "SELECT id::text, fixture_id::text, minute, text, source, created_at "
-                "FROM live_thread_events WHERE fixture_id = $1 AND created_at >= $2 "
+                "FROM live_thread_events WHERE fixture_id = $1 "
                 "ORDER BY created_at ASC",
-                fixture_id, last_cursor,
+                fixture_id,
             )
+        last_cursor = init[-1]["created_at"] if init else datetime.now(UTC) - timedelta(minutes=5)
         for r in init:
             payload = {
                 "id": r["id"], "fixture_id": r["fixture_id"],
