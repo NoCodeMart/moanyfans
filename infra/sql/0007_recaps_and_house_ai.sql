@@ -19,4 +19,6 @@ CREATE TABLE IF NOT EXISTS house_ai_log (
   PRIMARY KEY (kind, ref)
 );
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON match_recaps, house_ai_log TO moanyfans;
+
 COMMIT;
