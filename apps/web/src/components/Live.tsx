@@ -355,17 +355,16 @@ export function Composer({ open, onClose }: { open: boolean; onClose: () => void
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Default the team selector to the user's team once teams load
+  useEffect(() => {
+    if (open && !teamSlug && user?.team_slug) setTeamSlug(user.team_slug);
+  }, [open, user?.team_slug, teamSlug]);
+
   if (!open) return null;
   const max = 280;
-  const heat = Math.min(10, Math.floor((text.length / max) * 10));
+  const remaining = max - text.length;
   const placeholder = KINDS.find(k => k.key === kind)?.placeholder ?? '';
-
-  // Group teams by league for the picker
-  const grouped = teams.reduce<Record<string, Team[]>>((acc, t) => {
-    (acc[t.league] ??= []).push(t);
-    return acc;
-  }, {});
-  const leagues = ['Premier League', 'Championship', 'League One', 'League Two', 'Scottish Premiership'];
+  const selectedTeam = teamSlug ? teams.find(t => t.slug === teamSlug) ?? null : null;
 
   const submit = async () => {
     setError(null);
@@ -373,13 +372,11 @@ export function Composer({ open, onClose }: { open: boolean; onClose: () => void
       const created = await create.mutateAsync({
         kind, text,
         team_slug: teamSlug || undefined,
-        rage_level: heat,
       });
       if (created.status === 'HELD') {
-        setError('Moan held for review (high risk score). It will publish if approved.');
+        setError('Moan held for review. It will publish if approved.');
       } else {
         setText('');
-        setTeamSlug('');
         onClose();
       }
     } catch (e) {
@@ -388,84 +385,163 @@ export function Composer({ open, onClose }: { open: boolean; onClose: () => void
   };
 
   return (
-    <div className="modal-scrim" onClick={onClose}>
-      <div className="composer" onClick={e => e.stopPropagation()}>
-        <div className="composer-head">
-          <h2>FILE A FORMAL MOAN</h2>
-          <button className="composer-x" onClick={onClose} type="button">✕</button>
+    <div className="composer-scrim" onClick={onClose}>
+      <div className="composer-sheet" onClick={e => e.stopPropagation()}
+           role="dialog" aria-modal="true" aria-label="Compose a moan">
+        {/* Top bar — close + post button (right) */}
+        <div className="composer-topbar">
+          <button className="composer-close" onClick={onClose} type="button"
+                   aria-label="Close composer">✕</button>
+          <button
+            className="composer-post"
+            type="button"
+            disabled={!text.trim() || create.isPending}
+            onClick={submit}
+          >{create.isPending ? '…' : 'MOAN'}</button>
         </div>
 
-        <div className="composer-kind">
-          {KINDS.map(k => (
-            <button key={k.key} type="button"
-              className={'composer-kind-btn' + (kind === k.key ? ' active' : '')}
-              onClick={() => setKind(k.key)}>{k.key}</button>
-          ))}
-        </div>
-
-        <div className="composer-team">
-          <label>FILING ON BEHALF OF: {teamSlug
-            ? teams.find(t => t.slug === teamSlug)?.name
-            : (user?.team_name ?? 'YOUR TEAM')}</label>
-          <div style={{ maxHeight: 220, overflowY: 'auto', border: '2px solid var(--ink)', padding: 8 }}>
-            {leagues.map(league => grouped[league] && (
-              <div key={league} style={{ marginBottom: 12 }}>
-                <div style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em',
-                  marginBottom: 6, opacity: 0.6,
-                }}>{league.toUpperCase()}</div>
-                <div className="composer-team-grid">
-                  {grouped[league].map(tt => (
-                    <button key={tt.id} type="button"
-                      className={'composer-team-chip' + (teamSlug === tt.slug ? ' active' : '')}
-                      onClick={() => setTeamSlug(tt.slug)}
-                      style={{ ['--tc' as string]: tt.primary_color } as CSSProperties}>
-                      <TeamCrest team={tt} size={28} />
-                      <span>{tt.short_name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="composer-textarea-wrap">
-          <textarea className="composer-textarea"
-            placeholder={placeholder}
-            value={text} maxLength={max}
-            onChange={e => setText(e.target.value)} />
-          <div className="composer-meter">
-            <div className="composer-meter-track">
-              <div className="composer-meter-fill" style={{ width: `${(text.length / max) * 100}%` }} />
-            </div>
-            <span className="composer-meter-label">RAGE LEVEL: {heat}/10 · {text.length}/{max}</span>
+        {/* Body: avatar + writeable area */}
+        <div className="composer-body">
+          {user && <UserAvatar user={user} size={48} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <TeamPicker teams={teams} selected={selectedTeam}
+                         onPick={(slug) => setTeamSlug(slug ?? '')} />
+            <textarea
+              className="composer-input"
+              placeholder={placeholder}
+              value={text} maxLength={max}
+              onChange={e => setText(e.target.value)}
+              autoFocus
+              rows={4}
+            />
           </div>
         </div>
 
         {error && (
           <div style={{
-            margin: '0 24px 8px',
-            padding: 8,
+            margin: '0 16px 8px',
+            padding: 10, fontSize: 13,
             background: 'var(--red)', color: 'var(--cream)',
-            fontFamily: 'var(--font-mono)', fontSize: 12,
-          }}>
-            {error}
-          </div>
+            fontFamily: 'var(--font-mono)',
+          }}>{error}</div>
         )}
 
-        <div className="composer-foot">
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--red)',
-          }}>PUBLIC · NO TAKEBACKS</span>
-          <button className="btn-primary"
-            disabled={!text.trim() || create.isPending}
-            onClick={submit}
-            type="button">
-            {create.isPending ? 'FILING…' : 'FILE MOAN →'}
-          </button>
+        {/* Bottom action row: kind chips + counter */}
+        <div className="composer-actions">
+          <div className="composer-kind-row">
+            {KINDS.map(k => (
+              <button key={k.key} type="button"
+                className={'composer-kind-pill' + (kind === k.key ? ' active' : '')}
+                onClick={() => setKind(k.key)}
+                title={k.key}>{k.key}</button>
+            ))}
+          </div>
+          <div className="composer-counter" data-warn={remaining < 20 ? '1' : undefined}
+                data-over={remaining < 0 ? '1' : undefined}>
+            {remaining}
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TeamPicker({
+  teams, selected, onPick,
+}: {
+  teams: Team[];
+  selected: Team | null;
+  onPick: (slug: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return teams.slice(0, 10);
+    return teams
+      .filter(t =>
+        t.name.toLowerCase().includes(q)
+        || t.short_name.toLowerCase().includes(q)
+        || t.city.toLowerCase().includes(q)
+        || t.slug.includes(q),
+      )
+      .slice(0, 12);
+  }, [teams, query]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="composer-team-pill"
+        onClick={() => setOpen(true)}
+      >
+        {selected ? (
+          <>
+            <span className="composer-team-pill-dot"
+                   style={{ background: selected.primary_color }} />
+            Posting about <b>{selected.short_name}</b>
+            <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 4 }}>· change</span>
+          </>
+        ) : (
+          <span style={{ opacity: 0.6 }}>+ Add a team</span>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <div className="composer-team-picker">
+      <input
+        type="text"
+        autoFocus
+        className="composer-team-search"
+        placeholder="Type a team or city…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+          if (e.key === 'Enter' && matches[0]) {
+            onPick(matches[0].slug); setOpen(false); setQuery('');
+          }
+        }}
+      />
+      <div className="composer-team-results">
+        {selected && (
+          <button
+            type="button" className="composer-team-row"
+            onClick={() => { onPick(null); setOpen(false); setQuery(''); }}
+            style={{ borderBottom: '1px dashed var(--rule)' }}
+          >
+            <span className="composer-team-pill-dot" style={{ background: 'transparent',
+                    border: '2px dashed var(--ink)' }} />
+            <span style={{ color: 'var(--red)' }}>Clear team</span>
+          </button>
+        )}
+        {matches.length === 0 && (
+          <div style={{ padding: 12, fontFamily: 'var(--font-mono)', fontSize: 12,
+                          opacity: 0.6 }}>No teams found.</div>
+        )}
+        {matches.map(t => (
+          <button
+            key={t.id} type="button" className="composer-team-row"
+            onClick={() => { onPick(t.slug); setOpen(false); setQuery(''); }}
+          >
+            <span className="composer-team-pill-dot" style={{ background: t.primary_color }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 15 }}>{t.name}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
+                              opacity: 0.6, letterSpacing: '0.05em' }}>
+                {t.league.toUpperCase()} · {t.city.toUpperCase()}
+              </div>
+            </span>
+          </button>
+        ))}
+      </div>
+      <button type="button"
+        className="composer-team-cancel"
+        onClick={() => { setOpen(false); setQuery(''); }}
+      >CANCEL</button>
     </div>
   );
 }
