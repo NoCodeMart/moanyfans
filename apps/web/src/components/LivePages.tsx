@@ -2,7 +2,7 @@
  * Drama screens — real, API-backed: LiveThread (with SSE auto-updates),
  * BattlesList + BattleDetail (challenge + vote + exchange).
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   api, type Battle, type BattleMsg, type Fixture, type LiveEvent,
@@ -177,52 +177,31 @@ function FixtureStrip({
 
 function FixtureLiveThread({ fixture }: { fixture: Fixture }) {
   const qc = useQueryClient();
-  const { data: initial = [] } = useQuery({
+  // Poll the events endpoint every 3s while LIVE, every 30s for FT (rare updates).
+  // SSE was buffered by Traefik in production — polling is robust through any proxy
+  // and the user-visible lag (≤3s) is fine for a thread that gets ~1 event/minute.
+  const { data: events = [] } = useQuery<LiveEvent[]>({
     queryKey: ['fixture-events', fixture.id],
     queryFn: () => api.listFixtureEvents(fixture.id),
+    refetchInterval: fixture.status === 'LIVE' ? 3_000 : 30_000,
   });
-  const [streamed, setStreamed] = useState<LiveEvent[]>([]);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
-  useEffect(() => {
-    if (fixture.status !== 'LIVE') return;
-    const es = new EventSource(api.fixtureStreamUrl(fixture.id));
-    eventSourceRef.current = es;
-    es.addEventListener('live_event', (e: MessageEvent<string>) => {
-      try {
-        const evt: LiveEvent = JSON.parse(e.data);
-        setStreamed(prev => {
-          if (prev.some(p => p.id === evt.id)) return prev;
-          return [...prev, evt];
-        });
-      } catch {
-        // ignore
-      }
-    });
-    es.onerror = () => {
-      // browser will auto-reconnect; tear down on unmount only
-    };
-    return () => { es.close(); };
-  }, [fixture.id, fixture.status]);
-
-  // Merge initial + streamed, dedupe, sort newest first
-  const events: LiveEvent[] = useMemo(() => {
-    const map = new Map<string, LiveEvent>();
-    for (const e of [...initial, ...streamed]) map.set(e.id, e);
-    return [...map.values()].sort((a, b) => {
-      if (b.minute !== a.minute) return b.minute - a.minute;
-      return b.created_at.localeCompare(a.created_at);
-    });
-  }, [initial, streamed]);
-
-  // Refresh fixture summary every 30s while live (catches goals/score changes)
+  // Refresh fixture summary every 15s while live (catches goals/score changes)
   useEffect(() => {
     if (fixture.status !== 'LIVE') return;
     const t = window.setInterval(() => {
       qc.invalidateQueries({ queryKey: ['fixtures', 'LIVE'] });
-    }, 30_000);
+    }, 15_000);
     return () => clearInterval(t);
   }, [fixture.status, qc]);
+
+  // Events sorted newest first by minute (the API already returns this order)
+  const sortedEvents = useMemo(() => {
+    return [...events].sort((a, b) => {
+      if (b.minute !== a.minute) return b.minute - a.minute;
+      return b.created_at.localeCompare(a.created_at);
+    });
+  }, [events]);
 
   return (
     <div className="live-thread">
@@ -273,13 +252,13 @@ function FixtureLiveThread({ fixture }: { fixture: Fixture }) {
 
       {/* Events feed */}
       <div>
-        {events.length === 0 && (
+        {sortedEvents.length === 0 && (
           <div style={{
             padding: 32, textAlign: 'center',
             fontFamily: 'var(--font-mono)', opacity: 0.5,
           }}>NO EVENTS YET — STAY MOANED IN.</div>
         )}
-        {events.map(e => (
+        {sortedEvents.map(e => (
           <div key={e.id} style={{
             display: 'grid', gridTemplateColumns: '60px 1fr', gap: 16,
             padding: '16px 0',
