@@ -350,6 +350,65 @@ function FixtureLiveThread({ fixture }: { fixture: Fixture }) {
 // ROAST BATTLES
 // ────────────────────────────────────────────────────────────────────────────
 
+export function BattlesAsideCard({ onOpen }: { onOpen: () => void }) {
+  const { data: battles = [] } = useQuery({
+    queryKey: ['battles', 'aside'],
+    queryFn: () => api.listBattles(),
+    refetchInterval: 60_000,
+  });
+  const live = battles.find(b => b.status === 'ACTIVE') ?? battles[0];
+  return (
+    <div className="aside-card" style={{ background: 'var(--red)', color: 'var(--cream)', borderColor: 'var(--ink)' }}>
+      <div className="aside-card-head" style={{ background: 'var(--cream)', color: 'var(--ink)' }}>
+        ROAST BATTLE
+        {live && (
+          <small style={{ background: 'var(--red)', color: 'var(--cream)', padding: '1px 5px',
+                            letterSpacing: '0.1em' }}>{live.status}</small>
+        )}
+      </div>
+      <div className="aside-card-body">
+        {live ? (
+          <>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, lineHeight: 1.05, marginBottom: 6 }}>
+              @{live.challenger.handle} <span style={{ opacity: 0.6 }}>VS</span> @{live.opponent.handle}
+            </div>
+            {live.topic && (
+              <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic',
+                            fontSize: 13, lineHeight: 1.3, margin: '0 0 10px',
+                            color: 'var(--cream)', opacity: 0.9 }}>"{live.topic}"</p>
+            )}
+            <div style={{ display: 'flex', height: 18, marginBottom: 12,
+                            border: '1px solid var(--cream)' }}>
+              <div style={{ flex: live.challenger_votes + 0.0001,
+                              background: 'var(--cream)' }} />
+              <div style={{ flex: live.opponent_votes + 0.0001, background: 'var(--ink)' }} />
+            </div>
+            <button
+              className="btn-primary"
+              type="button" onClick={onOpen}
+              style={{ background: 'var(--cream)', color: 'var(--ink)', width: '100%' }}
+            >OPEN BATTLE →</button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: 1.05, marginBottom: 8 }}>
+              NO BATTLES IN THE RING.
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.85, marginBottom: 12 }}>
+              Step up. Pick a fan. Throw down.
+            </div>
+            <button
+              className="btn-primary"
+              type="button" onClick={onOpen}
+              style={{ background: 'var(--cream)', color: 'var(--ink)', width: '100%' }}
+            >START A BATTLE →</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function BattlesPage() {
   const { user } = useCurrentUser();
   const [activeId, setActiveId] = useState<string | null>(null);

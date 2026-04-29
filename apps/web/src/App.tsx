@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Ticker, Wordmark } from './components/Brand';
 import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from './components/Live';
-import { BattlesPage, LiveMoanAlong } from './components/LivePages';
+import { BattlesPage, BattlesAsideCard, LiveMoanAlong } from './components/LivePages';
 import { Landing } from './components/Landing';
 import { LegalLayer, type LegalView } from './components/LegalLayer';
 import { Leaderboards, Rivalry } from './components/Screens';
@@ -306,27 +306,7 @@ export default function App() {
       <aside className="aside">
         <TrendingRail />
 
-        <div className="aside-card" style={{ background: 'var(--red)', color: 'var(--cream)', borderColor: 'var(--ink)' }}>
-          <div className="aside-card-head" style={{ background: 'var(--cream)', color: 'var(--ink)' }}>
-            ROAST BATTLE · DEMO
-          </div>
-          <div className="aside-card-body">
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, lineHeight: 1, marginBottom: 6 }}>
-              CHAD vs COPELORD
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.05em', opacity: 0.85, marginBottom: 12 }}>
-              v1.1 FEATURE · STILL DEMO
-            </div>
-            <button
-              className="btn-primary"
-              type="button"
-              onClick={() => setRoute('battle')}
-              style={{ background: 'var(--cream)', color: 'var(--ink)', width: '100%' }}
-            >
-              SEE THE PROTOTYPE
-            </button>
-          </div>
-        </div>
+        <BattlesAsideCard onOpen={() => setRoute('battle')} />
 
         <div style={{
           fontFamily: 'var(--font-mono)',

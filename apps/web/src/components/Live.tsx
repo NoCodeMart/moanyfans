@@ -124,18 +124,69 @@ function ShareBar({ moan }: { moan: Moan }) {
   const url = `${window.location.origin}/m/${moan.id}`;
   const text = `"${moan.text.slice(0, 140)}${moan.text.length > 140 ? '…' : ''}" — @${moan.user.handle} on Moanyfans`;
   const enc = encodeURIComponent;
+  const [copied, setCopied] = useState(false);
+
+  const hasNativeShare = typeof navigator !== 'undefined'
+    && typeof (navigator as Navigator).share === 'function';
+
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches;
+
+  const nativeShare = async () => {
+    try {
+      await (navigator as Navigator).share({
+        title: 'Moanyfans',
+        text,
+        url,
+      });
+    } catch {
+      // user cancelled or share failed — silent
+    }
+  };
+  const copy = () => {
+    navigator.clipboard.writeText(url).catch(() => {});
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  };
+
+  // Mobile + native share API → single big button → OS share sheet
+  if (isMobile && hasNativeShare) {
+    return (
+      <div style={{
+        display: 'flex', gap: 8, padding: '8px 12px', alignItems: 'center',
+        borderTop: '1px dashed var(--rule, #c7bfa9)',
+      }}>
+        <button
+          type="button"
+          onClick={nativeShare}
+          style={{
+            flex: 1,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            background: 'var(--ink)', color: 'var(--cream)', border: 0,
+            padding: '10px 14px',
+            fontFamily: 'var(--font-display)', fontSize: 14, letterSpacing: '0.05em',
+            borderRadius: 6, cursor: 'pointer',
+          }}
+        >
+          <ShareIcon /> SHARE
+        </button>
+        <button type="button" onClick={copy}
+          aria-label="Copy link" title={copied ? 'Copied!' : 'Copy link'}
+          style={{
+            width: 40, height: 40, background: copied ? 'var(--green, #06a77d)' : 'var(--cream-2)',
+            color: 'var(--ink)', border: '1.5px solid var(--ink)', borderRadius: 6,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          }}>{copied ? <CheckIcon /> : <LinkIcon />}</button>
+      </div>
+    );
+  }
+
+  // Desktop / no-native-share → individual brand buttons
   const links: { label: string; href: string; bg: string; icon: ReactNode }[] = [
     { label: 'WhatsApp',  href: `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}`, bg: '#25D366', icon: <WhatsAppIcon /> },
     { label: 'X',         href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`, bg: '#000', icon: <XIcon /> },
     { label: 'Facebook',  href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`, bg: '#1877F2', icon: <FacebookIcon /> },
     { label: 'Reddit',    href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}`, bg: '#FF4500', icon: <RedditIcon /> },
   ];
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(url).catch(() => {});
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  };
   return (
     <div style={{
       display: 'flex', gap: 6, padding: '8px 12px', alignItems: 'center',
@@ -160,14 +211,20 @@ function ShareBar({ moan }: { moan: Moan }) {
         style={{
           width: 30, height: 30, background: copied ? 'var(--green, #06a77d)' : 'var(--ink)',
           color: 'var(--cream)', border: 0, borderRadius: '50%',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer',
-        }}>
-        {copied ? <CheckIcon /> : <LinkIcon />}
-      </button>
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>{copied ? <CheckIcon /> : <LinkIcon />}</button>
     </div>
   );
 }
+
+const ShareIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"
+        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+    <polyline points="16 6 12 2 8 6"/>
+    <line x1="12" y1="2" x2="12" y2="15"/>
+  </svg>
+);
 
 // Brand-faithful share icons (current logos as of 2026)
 const WhatsAppIcon = () => (
