@@ -40,6 +40,33 @@ function timeRemaining(iso: string): string {
 // LIVE MOAN-ALONG
 // ────────────────────────────────────────────────────────────────────────────
 
+// Display order for league strips — PL first, then EFL tiers, then SPL
+const LEAGUE_ORDER = [
+  'English Premier League',
+  'English League Championship',
+  'English League 1',
+  'English League 2',
+  'Scottish Premiership',
+] as const;
+
+const LEAGUE_LABEL: Record<string, string> = {
+  'English Premier League':       'PREMIER LEAGUE',
+  'English League Championship':  'CHAMPIONSHIP',
+  'English League 1':             'LEAGUE ONE',
+  'English League 2':             'LEAGUE TWO',
+  'Scottish Premiership':         'SCOTTISH PREMIERSHIP',
+};
+
+function groupByLeague(fixtures: Fixture[]): Map<string, Fixture[]> {
+  const m = new Map<string, Fixture[]>();
+  for (const f of fixtures) {
+    const arr = m.get(f.competition) ?? [];
+    arr.push(f);
+    m.set(f.competition, arr);
+  }
+  return m;
+}
+
 export function LiveMoanAlong() {
   const { data: live = [], isLoading } = useQuery({
     queryKey: ['fixtures', 'LIVE'],
@@ -48,11 +75,12 @@ export function LiveMoanAlong() {
   });
   const { data: upcoming = [] } = useQuery({
     queryKey: ['fixtures', 'SCHEDULED'],
-    queryFn: () => api.listFixtures({ status: 'SCHEDULED', limit: 8 }),
+    // limit 100 = full backend cap; covers every upcoming fixture across all leagues
+    queryFn: () => api.listFixtures({ status: 'SCHEDULED', limit: 100 }),
   });
   const { data: past = [] } = useQuery({
     queryKey: ['fixtures', 'FT'],
-    queryFn: () => api.listFixtures({ status: 'FT', limit: 6 }),
+    queryFn: () => api.listFixtures({ status: 'FT', limit: 12 }),
   });
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -67,6 +95,13 @@ export function LiveMoanAlong() {
   }
 
   const activeFixture = [...live, ...past].find(f => f.id === activeId);
+  const upcomingByLeague = groupByLeague(upcoming);
+  const pastByLeague = groupByLeague(past);
+
+  // Total upcoming + which leagues are populated
+  const populatedLeagues = LEAGUE_ORDER.filter(
+    l => (upcomingByLeague.get(l)?.length ?? 0) > 0,
+  );
 
   return (
     <div className="live">
@@ -74,34 +109,53 @@ export function LiveMoanAlong() {
         padding: '24px 0',
         borderBottom: '3px solid var(--ink)',
         marginBottom: 16,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
       }}>
-        <h1 className="headline" style={{
-          fontSize: 64, color: 'var(--ink)', textShadow: '3px 3px 0 var(--red)', margin: 0,
-        }}>LIVE MOAN-ALONG</h1>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, marginTop: 8, opacity: 0.7 }}>
-          EVERY MINUTE. EVERY MISTAKE. EVERY MELTDOWN.
-        </p>
+        <div>
+          <h1 className="headline" style={{
+            fontSize: 64, color: 'var(--ink)', textShadow: '3px 3px 0 var(--red)', margin: 0,
+          }}>LIVE MOAN-ALONG</h1>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, marginTop: 8, opacity: 0.7 }}>
+            EVERY MINUTE. EVERY MISTAKE. EVERY MELTDOWN.
+          </p>
+        </div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, textAlign: 'right', opacity: 0.7 }}>
+          <div>{live.length} LIVE</div>
+          <div>{upcoming.length} UPCOMING ACROSS {populatedLeagues.length} LEAGUES</div>
+        </div>
       </div>
 
-      {/* Live fixtures strip */}
+      {/* Live fixtures (always one strip — usually small, all leagues mixed) */}
       {live.length > 0 && (
         <FixtureStrip
           title="● LIVE NOW" titleColor="var(--red)"
           fixtures={live} activeId={activeId} onPick={setActiveId} pulse
         />
       )}
-      {upcoming.length > 0 && (
+
+      {/* Upcoming — one strip per league, in fixed display order */}
+      {populatedLeagues.map(league => (
         <FixtureStrip
-          title="UPCOMING" titleColor="var(--ink)"
-          fixtures={upcoming} activeId={null} onPick={() => {}}
+          key={`up-${league}`}
+          title={`UPCOMING · ${LEAGUE_LABEL[league] ?? league.toUpperCase()}`}
+          titleColor="var(--ink)"
+          fixtures={(upcomingByLeague.get(league) ?? []).slice(0, 30)}
+          activeId={null}
+          onPick={() => {}}
         />
-      )}
-      {past.length > 0 && (
+      ))}
+
+      {/* Recent FT — one strip per league that has finished games to show */}
+      {LEAGUE_ORDER.filter(l => (pastByLeague.get(l)?.length ?? 0) > 0).map(league => (
         <FixtureStrip
-          title="RECENT FT" titleColor="var(--ink)"
-          fixtures={past} activeId={activeId} onPick={setActiveId}
+          key={`ft-${league}`}
+          title={`RECENT FT · ${LEAGUE_LABEL[league] ?? league.toUpperCase()}`}
+          titleColor="var(--ink)"
+          fixtures={(pastByLeague.get(league) ?? []).slice(0, 8)}
+          activeId={activeId}
+          onPick={setActiveId}
         />
-      )}
+      ))}
 
       {activeFixture && <FixtureLiveThread key={activeFixture.id} fixture={activeFixture} />}
     </div>
