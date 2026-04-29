@@ -1,7 +1,7 @@
 import {
   type UseQueryOptions, useMutation, useQuery, useQueryClient,
 } from '@tanstack/react-query';
-import { api, type CreateMoan, type CurrentUser, type Fixture, type Moan, type ProfileStats, type ReactionKind, type Side, type Team, type ThreadItem, type UpdateMe } from './api';
+import { api, type CreateMoan, type CurrentUser, type Fixture, type Moan, type ProfileStats, type PublicUser, type ReactionKind, type Side, type Team, type ThreadItem, type UpdateMe } from './api';
 
 export function useTeams(league?: string) {
   return useQuery<Team[]>({
@@ -25,12 +25,15 @@ type FeedFilters = {
   kind?: 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
   sport?: string;
   league?: string;
+  following?: boolean;
 };
 
 export function useFeed(filters: FeedFilters = {}) {
   return useQuery<Moan[]>({
     queryKey: ['feed', filters],
-    queryFn: () => api.listMoans({ ...filters, limit: 50 }),
+    queryFn: () => filters.following
+      ? api.followingFeed(50)
+      : api.listMoans({ ...filters, limit: 50 }),
     staleTime: 30_000,
   });
 }
@@ -126,6 +129,35 @@ export function useMyMoans(limit = 20) {
     queryKey: ['me', 'moans', limit],
     queryFn: () => api.myMoans(limit),
     staleTime: 15_000,
+  });
+}
+
+export function useUser(handle: string | null) {
+  return useQuery<PublicUser>({
+    queryKey: ['user', handle],
+    queryFn: () => api.getUser(handle!),
+    enabled: !!handle,
+    staleTime: 30_000,
+  });
+}
+
+export function useUserMoans(handle: string | null) {
+  return useQuery<Moan[]>({
+    queryKey: ['user', handle, 'moans'],
+    queryFn: () => api.userMoans(handle!),
+    enabled: !!handle,
+    staleTime: 30_000,
+  });
+}
+
+export function useFollow(handle: string) {
+  const qc = useQueryClient();
+  return useMutation<PublicUser, Error, boolean>({
+    mutationFn: (next) => next ? api.followUser(handle) : api.unfollowUser(handle),
+    onSuccess: (data) => {
+      qc.setQueryData(['user', handle], data);
+      qc.invalidateQueries({ queryKey: ['feed'] });
+    },
   });
 }
 

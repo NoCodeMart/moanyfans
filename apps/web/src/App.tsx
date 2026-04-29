@@ -5,6 +5,7 @@ import { BattlesPage, BattlesAsideCard, LiveMoanAlong } from './components/LiveP
 import { Landing } from './components/Landing';
 import { LegalLayer, type LegalView } from './components/LegalLayer';
 import { OnboardingWizard } from './components/Onboarding';
+import { UserProfileView } from './components/UserProfile';
 import { Leaderboards, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
 
@@ -41,7 +42,7 @@ const TICKER_ITEMS = [
   "LEEDS fans file 47th promotion-cycle moan of the season",
 ];
 
-const FILTERS = ['ALL', 'MOAN', 'ROAST', 'COPE', 'BANTER'];
+const FILTERS = ['ALL', 'FOLLOWING', 'MOAN', 'ROAST', 'COPE', 'BANTER'];
 const PALETTE_KEYS = Object.keys(PALETTES) as (keyof typeof PALETTES)[];
 
 function readMoanIdFromUrl(): string | null {
@@ -52,12 +53,17 @@ function readMoanIdFromUrl(): string | null {
   return params.get('m');
 }
 
+function readUserHandleFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get('u');
+}
+
 export default function App() {
   const [route, setRoute] = useState<Route>('feed');
   const [composerOpen, setComposerOpen] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [palette, setPalette] = useState<keyof typeof PALETTES>('neon');
   const [activeMoan, setActiveMoan] = useState<string | null>(() => readMoanIdFromUrl());
+  const [activeUser, setActiveUser] = useState<string | null>(() => readUserHandleFromUrl());
   const [legalView, setLegalView] = useState<LegalView>(null);
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     if (readMoanIdFromUrl()) return false;
@@ -74,15 +80,6 @@ export default function App() {
     setShowLanding(false);
   };
 
-  if (showLanding) {
-    return (
-      <>
-        <Landing onEnter={startOnboarding} onLegal={(v) => setLegalView(v)} />
-        {onboardingOpen && <OnboardingWizard onClose={finishOnboarding} />}
-        <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
-      </>
-    );
-  }
   const { user, authEnabled, signInUrl } = useCurrentUser();
   const headline = 'BIN THE LOT';
   const density: 'compact' | 'regular' | 'comfy' = 'compact';
@@ -108,13 +105,40 @@ export default function App() {
     }
   }, [activeMoan]);
 
+  // Sync URL with activeUser
   useEffect(() => {
-    const onPop = () => setActiveMoan(readMoanIdFromUrl());
+    const url = new URL(window.location.href);
+    if (activeUser) {
+      if (url.searchParams.get('u') !== activeUser) {
+        url.searchParams.set('u', activeUser);
+        window.history.pushState({ user: activeUser }, '', url.toString());
+      }
+    } else if (url.searchParams.has('u')) {
+      url.searchParams.delete('u');
+      window.history.pushState({}, '', url.toString());
+    }
+  }, [activeUser]);
+
+  useEffect(() => {
+    const onPop = () => {
+      setActiveMoan(readMoanIdFromUrl());
+      setActiveUser(readUserHandleFromUrl());
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   const renderTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+  if (showLanding) {
+    return (
+      <>
+        <Landing onEnter={startOnboarding} onLegal={(v) => setLegalView(v)} />
+        {onboardingOpen && <OnboardingWizard onClose={finishOnboarding} />}
+        <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
+      </>
+    );
+  }
 
   return (
     <div className="app" data-density={density}>
@@ -252,12 +276,19 @@ export default function App() {
       </nav>
 
       <main className="main">
-        {activeMoan && (
+        {activeUser && (
+          <div style={{ paddingTop: 16 }}>
+            <UserProfileView handle={activeUser}
+                              onClose={() => setActiveUser(null)}
+                              onPickHandle={(h) => setActiveUser(h)} />
+          </div>
+        )}
+        {!activeUser && activeMoan && (
           <div style={{ paddingTop: 16 }}>
             <MoanDetail moanId={activeMoan} onBack={() => setActiveMoan(null)} />
           </div>
         )}
-        {!activeMoan && route === 'feed' && (
+        {!activeUser && !activeMoan && route === 'feed' && (
           <>
             <div style={{
               padding: '24px 0 24px',
@@ -297,15 +328,16 @@ export default function App() {
               ))}
             </div>
             <Feed filter={filter}
-                  onOpenMoan={setActiveMoan} />
+                  onOpenMoan={setActiveMoan}
+                  onOpenUser={setActiveUser} />
           </>
         )}
-        {!activeMoan && route === 'teams' && <TeamsPage />}
-        {!activeMoan && route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
-        {!activeMoan && route === 'live' && <LiveMoanAlong />}
-        {!activeMoan && route === 'battle' && <BattlesPage />}
-        {!activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
-        {!activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
+        {!activeUser && !activeMoan && route === 'teams' && <TeamsPage />}
+        {!activeUser && !activeMoan && route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
+        {!activeUser && !activeMoan && route === 'live' && <LiveMoanAlong />}
+        {!activeUser && !activeMoan && route === 'battle' && <BattlesPage />}
+        {!activeUser && !activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
+        {!activeUser && !activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
       </main>
 
       <aside className="aside">

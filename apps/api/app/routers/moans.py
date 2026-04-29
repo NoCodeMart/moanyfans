@@ -168,6 +168,7 @@ async def list_feed(
     user_handle: str | None = Query(default=None, alias="user",
                                      description="Filter by author handle"),
     mine: bool = Query(default=False, description="Only the signed-in user's moans"),
+    following: bool = Query(default=False, description="Only moans from accounts you follow"),
     limit: int = Query(default=50, ge=1, le=100),
     before: str | None = Query(default=None, description="Cursor: ISO timestamp"),
 ) -> list[MoanOut]:
@@ -197,6 +198,9 @@ async def list_feed(
     elif user_handle:
         args.append(user_handle.upper())
         sql += f" AND u.handle = ${len(args)}"
+    if following:
+        args.append(user.id)
+        sql += f" AND m.user_id IN (SELECT followed_id FROM follows WHERE follower_id = ${len(args)})"
     if before:
         args.append(before)
         sql += f" AND m.created_at < ${len(args)}::timestamptz"

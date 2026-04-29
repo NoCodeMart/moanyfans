@@ -12,6 +12,15 @@ import {
   useTeams, useTrendingTags, useUpdateMe,
 } from '../lib/hooks';
 
+// Default handler when a MoanCard is rendered outside the App shell —
+// pushes ?u=HANDLE so the App URL listener can open the profile view.
+function defaultOpenUser(handle: string) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('u', handle);
+  window.history.pushState({}, '', u.toString());
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
 // ── Avatar / Crest helpers (API-shape) ──────────────────────────────────────
 
 function UserAvatar({ user, size = 44, fallbackColor = '#0a0908' }: {
@@ -264,7 +273,9 @@ const CheckIcon = () => (
 
 // ── MoanCard ────────────────────────────────────────────────────────────────
 
-export function MoanCard({ moan, onOpen }: { moan: Moan; onOpen?: (id: string) => void }) {
+export function MoanCard({ moan, onOpen, onOpenUser }: {
+  moan: Moan; onOpen?: (id: string) => void; onOpenUser?: (handle: string) => void;
+}) {
   const kindColor =
     moan.kind === 'ROAST' ? 'var(--red)' :
     moan.kind === 'COPE' ? 'var(--blue)' : 'var(--ink)';
@@ -279,10 +290,20 @@ export function MoanCard({ moan, onOpen }: { moan: Moan; onOpen?: (id: string) =
       <div className="moan-tape" />
       <header className="moan-head">
         <div className="moan-head-l">
-          <UserAvatar user={moan.user} size={44} />
+          <button type="button"
+            onClick={() => (onOpenUser ?? defaultOpenUser)(moan.user.handle)}
+            style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
+            aria-label={`Open @${moan.user.handle}`}>
+            <UserAvatar user={moan.user} size={44} />
+          </button>
           <div className="moan-meta">
             <div className="moan-handle">
-              @{moan.user.handle}
+              <button type="button"
+                       onClick={() => (onOpenUser ?? defaultOpenUser)(moan.user.handle)}
+                       style={{
+                         background: 'transparent', border: 0, padding: 0, cursor: 'pointer',
+                         font: 'inherit', color: 'inherit', letterSpacing: 'inherit',
+                       }}>@{moan.user.handle}</button>
               {moan.team && (
                 <span className="moan-team-pill"
                   style={{ background: moan.team.primary_color, color: moan.team.secondary_color }}>
@@ -380,10 +401,11 @@ type FeedFilter = 'ALL' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
-  filter, onOpenMoan,
+  filter, onOpenMoan, onOpenUser,
 }: {
   filter: string;
   onOpenMoan?: (id: string) => void;
+  onOpenUser?: (handle: string) => void;
 }) {
   const upperFilter = filter.toUpperCase() as FeedFilter;
   const isKindFilter = ['MOAN', 'ROAST', 'COPE', 'BANTER'].includes(upperFilter);
@@ -425,7 +447,7 @@ export function Feed({
           NO MOANS HERE YET. BE THE FIRST TO MOAN.
         </div>
       )}
-      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} />)}
+      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} onOpenUser={onOpenUser} />)}
 
       {moans && moans.length > 0 && (
         <div className="feed-end">

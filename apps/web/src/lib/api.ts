@@ -36,6 +36,34 @@ export type UpdateMe = {
   avatar_style?: string | null;
 };
 
+export type PublicUser = {
+  id: string;
+  handle: string;
+  avatar_seed: string | null;
+  avatar_style: string | null;
+  bio: string | null;
+  team_id: string | null;
+  team_slug: string | null;
+  team_name: string | null;
+  team_primary: string | null;
+  is_house_account: boolean;
+  follower_count: number;
+  following_count: number;
+  moan_count: number;
+  you_follow: boolean;
+  follows_you: boolean;
+  created_at: string | null;
+};
+
+export type FollowListItem = {
+  handle: string;
+  avatar_seed: string | null;
+  avatar_style: string | null;
+  team_primary: string | null;
+  bio: string | null;
+  you_follow: boolean;
+};
+
 export type Team = {
   id: string;
   slug: string;
@@ -225,6 +253,15 @@ export const api = {
   myStats: () => request<ProfileStats>('/me/stats'),
   myMoans: (limit = 20) =>
     request<Moan[]>(`/moans?mine=true&limit=${limit}`),
+  getUser: (handle: string) => request<PublicUser>(`/users/${encodeURIComponent(handle)}`),
+  userMoans: (handle: string, limit = 30) =>
+    request<Moan[]>(`/moans?user=${encodeURIComponent(handle)}&limit=${limit}`),
+  followUser: (handle: string) =>
+    request<PublicUser>(`/users/${encodeURIComponent(handle)}/follow`, { method: 'POST' }),
+  unfollowUser: (handle: string) =>
+    request<PublicUser>(`/users/${encodeURIComponent(handle)}/follow`, { method: 'DELETE' }),
+  followingFeed: (limit = 50) =>
+    request<Moan[]>(`/moans?following=true&limit=${limit}`),
 
   listTeams: (league?: string) =>
     request<Team[]>(`/teams${league ? `?league=${encodeURIComponent(league)}` : ''}`),
