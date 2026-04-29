@@ -1393,3 +1393,144 @@ body[data-dark="1"] {
   /* Avoid box shadows that extend past viewport */
   .moan-card, .composer-sheet { box-shadow: 3px 3px 0 var(--ink); }
 }
+
+/* ═══ ONBOARDING WIZARD ═══ */
+.ob-scrim {
+  position: fixed; inset: 0; z-index: 300;
+  background: var(--ink);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(230,57,70,0.12), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(58,110,165,0.12), transparent 50%);
+  display: flex; align-items: stretch; justify-content: center;
+  overflow-y: auto;
+  padding: 16px;
+}
+.ob-card {
+  background: var(--cream); color: var(--ink);
+  width: 100%; max-width: 520px;
+  border: 4px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--red);
+  display: flex; flex-direction: column;
+  align-self: flex-start;
+  margin: auto 0;
+}
+.ob-progress {
+  display: flex; gap: 4px; padding: 12px 16px 0;
+}
+.ob-progress-bar {
+  flex: 1; height: 6px;
+  background: var(--cream-2);
+  border: 1px solid var(--ink);
+}
+.ob-progress-bar.on { background: var(--red); }
+.ob-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px;
+}
+.ob-step-no {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--ink); opacity: 0.55;
+}
+.ob-skip {
+  background: transparent; border: 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.1em; color: var(--ink); opacity: 0.55;
+  padding: 4px 6px;
+}
+.ob-skip:hover { opacity: 1; color: var(--red); }
+
+.ob-body { padding: 8px 24px 16px; }
+.ob-headline {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 6vw, 40px);
+  line-height: 1.05; letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+.ob-subhead {
+  font-family: var(--font-body); font-size: 15px; line-height: 1.4;
+  margin: 0 0 18px; color: var(--ink); opacity: 0.78;
+}
+.ob-field { margin-bottom: 14px; }
+.ob-field-label {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.1em; margin-bottom: 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+.ob-field-hint {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.05em; opacity: 0.55;
+  margin-top: 4px;
+}
+.ob-tick { color: var(--green, #06a77d); font-weight: 700; }
+.ob-cross { color: var(--red); font-weight: 700; }
+.ob-input {
+  width: 100%;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  padding: 12px;
+  font-family: var(--font-body); font-size: 16px;
+  color: var(--ink);
+  outline: none;
+}
+.ob-input:focus { border-color: var(--red); }
+
+.ob-selected {
+  padding: 14px 16px;
+  border: 3px solid var(--ink);
+  color: var(--cream);
+  margin-bottom: 8px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ob-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 36vh; overflow-y: auto;
+  border: 1.5px solid var(--ink);
+  padding: 8px;
+  background: var(--paper);
+}
+.ob-team-chip {
+  display: flex; gap: 8px; align-items: center;
+  background: var(--cream); border: 1.5px solid var(--ink);
+  padding: 8px 10px;
+  font-family: var(--font-display);
+  text-align: left; cursor: pointer;
+  min-width: 0;
+}
+.ob-team-chip:hover { background: var(--cream-2); }
+.ob-team-chip.active {
+  background: var(--tc); color: var(--cream); border-color: var(--ink);
+}
+.ob-team-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1.5px solid var(--ink); flex-shrink: 0;
+}
+
+.ob-footer {
+  display: flex; gap: 10px; align-items: center;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--rule);
+}
+.ob-back {
+  background: transparent; color: var(--ink);
+  border: 2px solid var(--ink);
+  padding: 9px 14px;
+  font-family: var(--font-display); font-size: 13px;
+  letter-spacing: 0.05em; cursor: pointer;
+}
+.ob-next {
+  background: var(--red); color: var(--cream);
+  border: 0; padding: 11px 22px;
+  font-family: var(--font-display); font-size: 15px;
+  letter-spacing: 0.05em; cursor: pointer;
+}
+.ob-next:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .ob-card { box-shadow: 4px 4px 0 var(--red); }
+  .ob-headline { font-size: 28px; }
+  .ob-team-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}

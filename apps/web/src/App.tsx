@@ -4,6 +4,7 @@ import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from '
 import { BattlesPage, BattlesAsideCard, LiveMoanAlong } from './components/LivePages';
 import { Landing } from './components/Landing';
 import { LegalLayer, type LegalView } from './components/LegalLayer';
+import { OnboardingWizard } from './components/Onboarding';
 import { Leaderboards, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
 
@@ -64,16 +65,20 @@ export default function App() {
     return localStorage.getItem(VISITED_KEY) !== '1';
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
-  const enterApp = () => {
+  const startOnboarding = () => setOnboardingOpen(true);
+  const finishOnboarding = () => {
     localStorage.setItem(VISITED_KEY, '1');
+    setOnboardingOpen(false);
     setShowLanding(false);
   };
 
   if (showLanding) {
     return (
       <>
-        <Landing onEnter={enterApp} onLegal={(v) => setLegalView(v)} />
+        <Landing onEnter={startOnboarding} onLegal={(v) => setLegalView(v)} />
+        {onboardingOpen && <OnboardingWizard onClose={finishOnboarding} />}
         <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
       </>
     );
@@ -330,6 +335,7 @@ export default function App() {
 
       <Composer open={composerOpen} onClose={() => setComposerOpen(false)} />
       <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
+      {onboardingOpen && <OnboardingWizard onClose={() => setOnboardingOpen(false)} />}
 
       {drawerOpen && (
         <>
