@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+import asyncio
+import random
 from typing import Annotated, Literal
 
 import asyncpg
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from ..auth import CurrentUser, get_current_user
+from ..services import house_ai
 from ..services.moderation import moderate_moan
 from ..services.tags import attach_tags_to_moan, extract_tags, upsert_tags
+
+log = structlog.get_logger(__name__)
+_COPE_REPLY_PROBABILITY = 0.30
 
 router = APIRouter(prefix="/moans", tags=["moans"])
 
@@ -283,6 +290,22 @@ async def create_moan(
     async with pool.acquire() as conn:
         row = await conn.fetchrow(_FEED_SQL + " WHERE m.id = $2", user.id, new_id)
     assert row is not None
+
+    # Drama engine: roughly 30% of fresh top-level MOAN/ROAST get a COPELORD reply.
+    # Fire-and-forget — never blocks the response.
+    if (
+        new_status == "PUBLISHED"
+        and not body.parent_moan_id
+        and body.kind in ("MOAN", "ROAST")
+        and random.random() < _COPE_REPLY_PROBABILITY
+    ):
+        async def _fire_cope() -> None:
+            try:
+                await house_ai.copelord_reply_to(pool, new_id)
+            except Exception:
+                log.exception("cope_reply_task_failed", moan_id=new_id)
+        asyncio.create_task(_fire_cope())
+
     return _row_to_moan(row)
 
 

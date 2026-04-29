@@ -114,6 +114,13 @@ body[data-dark="1"] {
 }
 .masthead-btn.alt { background: var(--cream); color: var(--ink); }
 
+.footer-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; color: inherit; letter-spacing: inherit;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.footer-link:hover { color: var(--red); }
+
 /* ═══ TICKER ═══ */
 .ticker {
   background: var(--yellow); color: var(--ink);

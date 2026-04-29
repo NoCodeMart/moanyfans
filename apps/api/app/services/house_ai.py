@@ -39,6 +39,18 @@ Rules:
 - British English."""
 
 
+_COPE_SYSTEM = """You are COPELORD_BOT, a house AI account on Moanyfans (UK football moaning \
+platform). Your job: reply to a fan's moan with the most copium-soaked reply imaginable, \
+finding the silver lining nobody asked for. Voice: delusional optimism, deadpan, British.
+
+Return JSON ONLY: {"text": "<≤220 chars, ending with #COPE>"}
+
+Rules:
+- One short reply. No essays. No advice. Pure cope.
+- Lean into the absurdity. Say their disaster is "actually a long-term plan."
+- No defamation, no real-person crime claims. British English."""
+
+
 _RAGE_RANKER_SYSTEM = """You are RAGE_RANKER, a house AI account on Moanyfans that publishes a \
 weekly UK football leaderboard of the most embarrassing performances of the week. Tone: dry, \
 British tabloid, pure banter.
@@ -222,6 +234,75 @@ async def rage_ranker_weekly(pool: asyncpg.Pool) -> bool:
             week_ref,
         )
     log.info("rage_ranker_posted", week=week_ref, moan_id=moan_id)
+    return True
+
+
+async def copelord_reply_to(pool: asyncpg.Pool, moan_id: str) -> bool:
+    """Post a COPELORD_BOT reply to a user moan. Idempotent per moan."""
+    async with pool.acquire() as conn:
+        if await conn.fetchval(
+            "SELECT 1 FROM house_ai_log WHERE kind='cope_reply' AND ref=$1", moan_id,
+        ):
+            return False
+        row = await conn.fetchrow(
+            """
+            SELECT m.text, m.kind, m.team_id::text AS team_id, u.is_house_account
+              FROM moans m JOIN users u ON u.id = m.user_id
+             WHERE m.id = $1 AND m.status = 'PUBLISHED' AND m.deleted_at IS NULL
+            """,
+            moan_id,
+        )
+    if not row or row["is_house_account"]:
+        return False
+    if row["kind"] not in {"MOAN", "ROAST"}:
+        return False
+
+    prompt = f"User moaned: \"{row['text']}\"\nWrite Copelord's reply."
+    data = await _claude_json(_COPE_SYSTEM, prompt)
+    if not data:
+        return False
+    text = str(data.get("text", "")).strip()[:300]
+    if not text:
+        return False
+
+    async with pool.acquire() as conn, conn.transaction():
+        # Insert as a reply (parent_moan_id = moan_id)
+        user = await conn.fetchrow(
+            "SELECT id::text FROM users WHERE handle = 'COPELORD_BOT'",
+        )
+        if not user:
+            return False
+        new_id = await conn.fetchval(
+            """
+            INSERT INTO moans (user_id, team_id, parent_moan_id, kind, status, text, rage_level)
+            VALUES ($1, $2, $3, 'COPE', 'PUBLISHED', $4, 3)
+            RETURNING id::text
+            """,
+            user["id"], row["team_id"], moan_id, text,
+        )
+        # Tags
+        tags = {m.upper() for m in re.findall(r"#([A-Za-z0-9_]{2,32})", text)}
+        for slug in tags:
+            tag = await conn.fetchrow(
+                """
+                INSERT INTO tags (slug, display, use_count) VALUES ($1, $2, 1)
+                ON CONFLICT (slug) DO UPDATE SET use_count = tags.use_count + 1, last_seen = now()
+                RETURNING id::text AS id
+                """,
+                slug, "#" + slug,
+            )
+            if tag:
+                await conn.execute(
+                    "INSERT INTO moan_tags (moan_id, tag_id) VALUES ($1, $2) "
+                    "ON CONFLICT DO NOTHING",
+                    new_id, tag["id"],
+                )
+        await conn.execute(
+            "INSERT INTO house_ai_log (kind, ref) VALUES ('cope_reply', $1) "
+            "ON CONFLICT DO NOTHING",
+            moan_id,
+        )
+    log.info("cope_reply_posted", moan_id=moan_id, reply_id=new_id)
     return True
 
 

@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Ticker, Wordmark } from './components/Brand';
 import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from './components/Live';
 import { BattlesPage, LiveMoanAlong } from './components/LivePages';
+import { LegalLayer, type LegalView } from './components/LegalLayer';
 import { Leaderboards, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
 
@@ -53,6 +54,7 @@ export default function App() {
   const [filter, setFilter] = useState('ALL');
   const [palette, setPalette] = useState<keyof typeof PALETTES>('neon');
   const [activeMoan, setActiveMoan] = useState<string | null>(() => readMoanIdFromUrl());
+  const [legalView, setLegalView] = useState<LegalView>(null);
   const { user, authEnabled, signInUrl } = useCurrentUser();
   const headline = 'BIN THE LOT';
   const density: 'compact' | 'regular' | 'comfy' = 'compact';
@@ -302,15 +304,22 @@ export default function App() {
           fontFamily: 'var(--font-mono)',
           fontSize: 10,
           letterSpacing: '0.1em',
-          opacity: 0.5,
+          opacity: 0.6,
           textAlign: 'center',
           padding: 12,
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6,
         }}>
-          MOANYFANS™ · NO MERCY POLICY · ALL TAKES ARE OURS · TERMS · PRIVACY
+          <span>MOANYFANS™ · NO MERCY POLICY ·</span>
+          <button type="button" onClick={() => setLegalView('terms')} className="footer-link">TERMS</button>
+          <span>·</span>
+          <button type="button" onClick={() => setLegalView('privacy')} className="footer-link">PRIVACY</button>
+          <span>·</span>
+          <button type="button" onClick={() => setLegalView('community')} className="footer-link">COMMUNITY STANDARDS</button>
         </div>
       </aside>
 
       <Composer open={composerOpen} onClose={() => setComposerOpen(false)} />
+      <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
     </div>
   );
 }
