@@ -1,9 +1,7 @@
-import { useState, useEffect, type CSSProperties } from 'react';
-import { TEAMS, USERS, TRENDING } from './data';
-import { Avatar, Ticker, Wordmark } from './components/Brand';
-import {
-  Battle, Composer, Feed, Leaderboards, LiveThread, Profile, Rivalry,
-} from './components/Screens';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { Ticker, Wordmark } from './components/Brand';
+import { Composer, Feed, MeProfile, TeamsPage, TrendingRail } from './components/Live';
+import { Battle, Leaderboards, LiveThread, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
 
 type Palette = { red: string; orange: string; yellow: string; blue: string };
@@ -14,29 +12,30 @@ const PALETTES: Record<string, Palette> = {
   newsprint: { red: '#9d0208', orange: '#dc2f02', yellow: '#e9c46a', blue: '#264653' },
 };
 
-type Route = 'feed' | 'live' | 'battle' | 'rivalry' | 'leaderboard' | 'profile';
+type Route = 'feed' | 'live' | 'battle' | 'rivalry' | 'leaderboard' | 'profile' | 'teams';
 
-const NAV_ITEMS: { id: Route; label: string; icon: string; section: 'main' | 'discover' | 'you'; badge?: string }[] = [
+const NAV_ITEMS: { id: Route; label: string; icon: string; section: 'main' | 'discover' | 'you'; badge?: string; demo?: boolean }[] = [
   { id: 'feed',        label: 'THE FEED',         icon: 'F', section: 'main' },
-  { id: 'live',        label: 'LIVE MOAN-ALONG',  icon: '●', section: 'main', badge: 'LIVE' },
-  { id: 'battle',      label: 'ROAST BATTLE',     icon: 'X', section: 'main' },
-  { id: 'rivalry',     label: 'RIVALRIES',        icon: 'V', section: 'discover' },
-  { id: 'leaderboard', label: 'LEADERBOARDS',     icon: '#', section: 'discover' },
+  { id: 'live',        label: 'LIVE MOAN-ALONG',  icon: '●', section: 'main', badge: 'DEMO', demo: true },
+  { id: 'battle',      label: 'ROAST BATTLE',     icon: 'X', section: 'main', badge: 'DEMO', demo: true },
+  { id: 'teams',       label: 'ALL CLUBS',        icon: '⚑', section: 'discover' },
+  { id: 'rivalry',     label: 'RIVALRIES',        icon: 'V', section: 'discover', demo: true },
+  { id: 'leaderboard', label: 'LEADERBOARDS',     icon: '#', section: 'discover', demo: true },
   { id: 'profile',     label: 'YOUR DOSSIER',     icon: '@', section: 'you' },
 ];
 
 const TICKER_ITEMS = [
-  "BREAKING: COPE_LORD_55 hits 30K cope reactions, becomes patron saint of relegation",
-  "FC GRUMBLE manager spotted ordering a sad pasty at services",
-  "ROAST BATTLE: CHAD_NUTMEG +18,402 vs COPE_LORD_55 +6,201 — round 2 closing",
-  "LIVE: TANTRUM 4-0 GRUMBLE · 67' · Grumble fan eats own scarf on camera",
-  "TRENDING #SLIPPERGATE — manager wears slippers to press conference, loses 2-0",
-  "FAIL FALCONS lose 14th consecutive · Tanya files 3rd moan of the day",
-  "DOOM DYNAMOS draft pick rated 'has hands' — analysts panic",
-  "MELTDOWN MOTORS pit stop now officially classified as a coffee break",
+  "BREAKING: GUEST_TESTER hits 12K agree reactions on the Manchester United board moan",
+  "HOT_TAKE_HARRY drops Arsenal-midfield-in-a-phone-box take, fans shaken",
+  "TRENDING #BOEHLYOUT · Chelsea fans queue round the block to file moans",
+  "RAGE_RANKER weekly top 3: 1) United · 2) Chelsea · 3) Tottenham (Spursy)",
+  "TRENDING #TROPHYDROUGHT — Spurs fan ratios Arsenal supporter so hard he changes club",
+  "COPELORD_BOT auto-replies to every Liverpool fan, server load nominal",
+  "OLD FIRM banter: Celtic fans roast Rangers' Viaplay Cup celebration",
+  "LEEDS fans file 47th promotion-cycle moan of the season",
 ];
 
-const FILTERS = ['ALL', 'MOAN', 'ROAST', 'COPE', 'football', 'basketball', 'nfl', 'cricket', 'rugby', 'baseball', 'f1', 'hockey'];
+const FILTERS = ['ALL', 'MOAN', 'ROAST', 'COPE', 'BANTER'];
 const PALETTE_KEYS = Object.keys(PALETTES) as (keyof typeof PALETTES)[];
 
 export default function App() {
@@ -45,7 +44,6 @@ export default function App() {
   const [filter, setFilter] = useState('ALL');
   const [palette, setPalette] = useState<keyof typeof PALETTES>('neon');
   const { user, authEnabled, signInUrl } = useCurrentUser();
-  const intensity = 10;
   const headline = 'BIN THE LOT';
   const density: 'compact' | 'regular' | 'comfy' = 'compact';
 
@@ -68,8 +66,8 @@ export default function App() {
             <Wordmark size={28} primary="var(--cream)" accent="var(--red)" spin={false} />
             <span className="masthead-issue">
               <span>VOL. III · NO. 287</span>
-              <span>APR 29, 2026</span>
-              <span style={{ color: 'var(--red)' }}>● 41,209 ONLINE</span>
+              <span>{new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}</span>
+              <span style={{ color: 'var(--red)' }}>● LIVE</span>
             </span>
           </div>
           <div className="masthead-search">
@@ -104,7 +102,13 @@ export default function App() {
           >
             <span className="nav-item-icon">{n.icon}</span>
             <span style={{ flex: 1 }}>{n.label}</span>
-            {n.badge && <span style={{ fontSize: 10, color: 'var(--red)', fontFamily: 'var(--font-mono)' }}>● {n.badge}</span>}
+            {n.badge && (
+              <span style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)',
+                color: n.demo ? 'var(--ink)' : 'var(--red)',
+                opacity: n.demo ? 0.5 : 1,
+              }}>● {n.badge}</span>
+            )}
           </button>
         ))}
         <div className="nav-section-label">DISCOVER</div>
@@ -117,6 +121,11 @@ export default function App() {
           >
             <span className="nav-item-icon">{n.icon}</span>
             <span style={{ flex: 1 }}>{n.label}</span>
+            {n.demo && (
+              <span style={{
+                fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink)', opacity: 0.5,
+              }}>● DEMO</span>
+            )}
           </button>
         ))}
         <div className="nav-section-label">YOU</div>
@@ -214,46 +223,34 @@ export default function App() {
                     cursor: 'pointer',
                   }}
                 >
-                  {f.toUpperCase()}
+                  {f}
                 </button>
               ))}
             </div>
-            <Feed filter={filter} intensity={intensity} onCompose={() => setComposerOpen(true)} />
+            <Feed filter={filter} onCompose={() => setComposerOpen(true)} />
           </>
         )}
-        {route === 'live' && <LiveThread />}
-        {route === 'battle' && <Battle />}
-        {route === 'rivalry' && <Rivalry />}
-        {route === 'leaderboard' && <Leaderboards />}
-        {route === 'profile' && <Profile />}
+        {route === 'teams' && <TeamsPage />}
+        {route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
+        {route === 'live' && <DemoBanner><LiveThread /></DemoBanner>}
+        {route === 'battle' && <DemoBanner><Battle /></DemoBanner>}
+        {route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
+        {route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
       </main>
 
       <aside className="aside">
-        <div className="aside-card">
-          <div className="aside-card-head">
-            TRENDING TAGS <small>LAST 24H</small>
-          </div>
-          <div className="aside-card-body">
-            {TRENDING.map(t => (
-              <div key={t.tag} className="trending-row">
-                <span className="tag-text">{t.tag}</span>
-                <span className="sport">{t.sport.toUpperCase()}</span>
-                <span className="moans">{t.moans.toLocaleString()}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <TrendingRail />
 
         <div className="aside-card" style={{ background: 'var(--red)', color: 'var(--cream)', borderColor: 'var(--ink)' }}>
           <div className="aside-card-head" style={{ background: 'var(--cream)', color: 'var(--ink)' }}>
-            ROAST BATTLE · LIVE
+            ROAST BATTLE · DEMO
           </div>
           <div className="aside-card-body">
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, lineHeight: 1, marginBottom: 6 }}>
               CHAD vs COPELORD
             </div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.05em', opacity: 0.85, marginBottom: 12 }}>
-              ROUND 2/3 · 02:14 LEFT · 24,603 VOTES IN
+              v1.1 FEATURE · STILL DEMO
             </div>
             <button
               className="btn-primary"
@@ -261,50 +258,8 @@ export default function App() {
               onClick={() => setRoute('battle')}
               style={{ background: 'var(--cream)', color: 'var(--ink)', width: '100%' }}
             >
-              JOIN THE BLOODBATH
+              SEE THE PROTOTYPE
             </button>
-          </div>
-        </div>
-
-        <div className="aside-card">
-          <div className="aside-card-head">WHO TO FOLLOW <small>FOR YOUR PAIN</small></div>
-          <div className="aside-card-body">
-            {USERS.slice(1, 5).map(u => {
-              const team = TEAMS.find(tt => tt.id === u.team)!;
-              return (
-                <div key={u.handle} style={{
-                  display: 'grid',
-                  gridTemplateColumns: '40px 1fr auto',
-                  gap: 10,
-                  alignItems: 'center',
-                  padding: '8px 0',
-                  borderBottom: '1px dashed var(--rule)',
-                }}>
-                  <Avatar user={u} size={40} />
-                  <div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 16 }}>@{u.handle}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: team.primary, fontWeight: 700 }}>
-                      {team.name}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    style={{
-                      fontFamily: 'var(--font-display)',
-                      fontSize: 12,
-                      letterSpacing: '0.05em',
-                      padding: '6px 10px',
-                      background: 'var(--ink)',
-                      color: 'var(--cream)',
-                      border: 0,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    FOLLOW
-                  </button>
-                </div>
-              );
-            })}
           </div>
         </div>
 
@@ -321,6 +276,23 @@ export default function App() {
       </aside>
 
       <Composer open={composerOpen} onClose={() => setComposerOpen(false)} />
+    </div>
+  );
+}
+
+function DemoBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{
+        background: 'var(--yellow)', color: 'var(--ink)',
+        padding: '8px 16px',
+        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em',
+        borderBottom: '3px solid var(--ink)',
+        marginBottom: 16,
+      }}>
+        ● DEMO SCREEN — STILL USING DUMMY DATA. SHIPS WITH REAL DATA IN v1.1.
+      </div>
+      {children}
     </div>
   );
 }

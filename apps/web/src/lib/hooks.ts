@@ -1,0 +1,108 @@
+import {
+  type UseQueryOptions, useMutation, useQuery, useQueryClient,
+} from '@tanstack/react-query';
+import { api, type CreateMoan, type Moan, type ReactionKind, type Team } from './api';
+
+export function useTeams(league?: string) {
+  return useQuery<Team[]>({
+    queryKey: ['teams', league ?? 'all'],
+    queryFn: () => api.listTeams(league),
+    staleTime: 1000 * 60 * 60, // teams change rarely
+  });
+}
+
+export function useTeam(slug: string | undefined) {
+  return useQuery<Team>({
+    queryKey: ['teams', 'one', slug],
+    queryFn: () => api.getTeam(slug!),
+    enabled: !!slug,
+    staleTime: 1000 * 60 * 60,
+  });
+}
+
+type FeedFilters = {
+  team?: string;
+  kind?: 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
+  sport?: string;
+  league?: string;
+};
+
+export function useFeed(filters: FeedFilters = {}) {
+  return useQuery<Moan[]>({
+    queryKey: ['feed', filters],
+    queryFn: () => api.listMoans({ ...filters, limit: 50 }),
+    staleTime: 30_000,
+  });
+}
+
+export function useTrendingTags(window: '24h' | '7d' | '30d' | 'all' = '24h') {
+  return useQuery({
+    queryKey: ['trending-tags', window],
+    queryFn: () => api.trendingTags(window, 12),
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateMoan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateMoan) => api.createMoan(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['feed'] });
+      qc.invalidateQueries({ queryKey: ['trending-tags'] });
+    },
+  });
+}
+
+export function useReact(moanId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (kind: ReactionKind | null) => api.reactToMoan(moanId, kind),
+    onMutate: async (kind) => {
+      // Optimistic update across feed cache
+      await qc.cancelQueries({ queryKey: ['feed'] });
+      const updates: { key: readonly unknown[]; previous: Moan[] | undefined }[] = [];
+      qc.getQueriesData<Moan[]>({ queryKey: ['feed'] }).forEach(([key, list]) => {
+        if (!list) return;
+        updates.push({ key, previous: list });
+        const next = list.map((m) => {
+          if (m.id !== moanId) return m;
+          return applyOptimisticReaction(m, kind);
+        });
+        qc.setQueryData(key, next);
+      });
+      return { updates };
+    },
+    onError: (_err, _kind, ctx) => {
+      ctx?.updates.forEach(({ key, previous }) => qc.setQueryData(key, previous));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['feed'] }),
+  });
+}
+
+function applyOptimisticReaction(m: Moan, next: ReactionKind | null): Moan {
+  const result: Moan = { ...m };
+  if (m.your_reaction) {
+    (result as Moan & Record<string, number>)[m.your_reaction] = Math.max(
+      0,
+      (m as unknown as Record<string, number>)[m.your_reaction] - 1,
+    );
+  }
+  if (next) {
+    (result as Moan & Record<string, number>)[next] = ((m as unknown as Record<string, number>)[next] ?? 0) + 1;
+  }
+  result.your_reaction = next;
+  return result;
+}
+
+export function useSetTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (team_slug: string) => api.setTeam(team_slug),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
+export type { UseQueryOptions };
