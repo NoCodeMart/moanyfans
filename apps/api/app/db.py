@@ -7,7 +7,7 @@ import structlog
 from fastapi import FastAPI
 
 from .config import get_settings
-from .services import scheduler
+from .services import fixture_sync, scheduler
 
 log = structlog.get_logger(__name__)
 
@@ -27,13 +27,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     app.state.pool = await init_pool()
     app.state.auth_enforced = settings.auth_enabled
-    sched_task = asyncio.create_task(scheduler.run(app.state.pool))
+
+    background_tasks = [
+        asyncio.create_task(scheduler.run(app.state.pool), name="scheduler"),
+        asyncio.create_task(fixture_sync.loop_upcoming(app.state.pool), name="fixture_sync_upcoming"),
+        asyncio.create_task(fixture_sync.loop_live(app.state.pool), name="fixture_sync_live"),
+    ]
     try:
         yield
     finally:
-        sched_task.cancel()
-        try:
-            await sched_task
-        except (asyncio.CancelledError, Exception):
-            pass
+        for t in background_tasks:
+            t.cancel()
+        for t in background_tasks:
+            try:
+                await t
+            except (asyncio.CancelledError, Exception):
+                pass
         await app.state.pool.close()
