@@ -3,8 +3,9 @@
  * The demo-only ones (Battle, Rivalry, Leaderboards, LiveThread) still live in Screens.tsx
  * with dummy data until those features ship in v1.1.
  */
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { type Moan, type ReactionKind, type Team, type UserRef } from '../lib/api';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api, type Moan, type ReactionKind, type Team, type UserRef } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import {
   useCreateMoan, useFeed, useReact, useSetTeam, useTeams, useTrendingTags,
@@ -117,12 +118,55 @@ function ReactionBar({ moan }: { moan: Moan }) {
   );
 }
 
+// ── Share buttons ───────────────────────────────────────────────────────────
+
+function ShareBar({ moan }: { moan: Moan }) {
+  const url = `${window.location.origin}/m/${moan.id}`;
+  const text = `"${moan.text.slice(0, 140)}${moan.text.length > 140 ? '…' : ''}" — @${moan.user.handle} on Moanyfans`;
+  const enc = encodeURIComponent;
+  const links: { label: string; href: string; bg: string }[] = [
+    { label: 'WHATSAPP',  href: `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}`, bg: '#25D366' },
+    { label: 'X / TWITTER', href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`, bg: '#000' },
+    { label: 'FACEBOOK',  href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`, bg: '#1877F2' },
+    { label: 'REDDIT',    href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}`, bg: '#FF4500' },
+  ];
+  const copy = () => {
+    navigator.clipboard.writeText(url).catch(() => {});
+  };
+  return (
+    <div style={{
+      display: 'flex', gap: 4, padding: '8px 12px',
+      borderTop: '1px dashed var(--rule, #c7bfa9)',
+      fontFamily: 'var(--font-display)', fontSize: 11, letterSpacing: '0.05em',
+    }}>
+      <span style={{ alignSelf: 'center', opacity: 0.6, marginRight: 4 }}>SHARE →</span>
+      {links.map(l => (
+        <a key={l.label}
+           href={l.href} target="_blank" rel="noopener noreferrer"
+           style={{
+             padding: '4px 8px', background: l.bg, color: '#fff',
+             textDecoration: 'none',
+           }}>{l.label}</a>
+      ))}
+      <button type="button" onClick={copy} style={{
+        padding: '4px 8px', background: 'var(--ink)', color: 'var(--cream)',
+        border: 0, fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', cursor: 'pointer',
+      }}>COPY LINK</button>
+    </div>
+  );
+}
+
 // ── MoanCard ────────────────────────────────────────────────────────────────
 
-export function MoanCard({ moan }: { moan: Moan }) {
+export function MoanCard({ moan, onOpen }: { moan: Moan; onOpen?: (id: string) => void }) {
   const kindColor =
     moan.kind === 'ROAST' ? 'var(--red)' :
     moan.kind === 'COPE' ? 'var(--blue)' : 'var(--ink)';
+
+  const openSelf = () => {
+    if (onOpen) onOpen(moan.id);
+    else window.location.assign(`/m/${moan.id}`);
+  };
 
   return (
     <article className="moan-card" data-kind={moan.kind}>
@@ -157,10 +201,13 @@ export function MoanCard({ moan }: { moan: Moan }) {
       </header>
 
       <div className="moan-body">
-        <p className="moan-text" style={{
-          fontSize: moan.rage_level > 7 ? 26 : moan.rage_level > 4 ? 22 : 18,
-          fontWeight: moan.rage_level > 6 ? 800 : 600,
-        }}>
+        <p className="moan-text"
+           onClick={openSelf}
+           style={{
+             fontSize: moan.rage_level > 7 ? 26 : moan.rage_level > 4 ? 22 : 18,
+             fontWeight: moan.rage_level > 6 ? 800 : 600,
+             cursor: 'pointer',
+           }}>
           {moan.text}
         </p>
         {moan.tags.length > 0 && (
@@ -173,6 +220,7 @@ export function MoanCard({ moan }: { moan: Moan }) {
       </div>
 
       <ReactionBar moan={moan} />
+      <ShareBar moan={moan} />
     </article>
   );
 }
@@ -191,16 +239,50 @@ export function ComposerInline({ onCompose }: { onCompose: () => void }) {
   );
 }
 
+// ── Single moan permalink view ──────────────────────────────────────────────
+
+export function MoanDetail({ moanId, onBack }: { moanId: string; onBack: () => void }) {
+  const { data: moan, isLoading, isError } = useQuery({
+    queryKey: ['moan', moanId],
+    queryFn: () => api.getMoan(moanId),
+  });
+  const { data: replies = [] } = useQuery({
+    queryKey: ['moan', moanId, 'replies'],
+    queryFn: () => api.listReplies(moanId),
+    enabled: !!moan,
+  });
+  return (
+    <div className="moan-detail">
+      <button type="button" onClick={onBack}
+        style={{
+          padding: '6px 12px', marginBottom: 16,
+          fontFamily: 'var(--font-display)', fontSize: 14,
+          background: 'var(--ink)', color: 'var(--cream)', border: 0, cursor: 'pointer',
+        }}>← BACK TO FEED</button>
+      {isLoading && <div style={{ fontFamily: 'var(--font-mono)' }}>LOADING…</div>}
+      {isError && <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>MOAN NOT FOUND</div>}
+      {moan && <MoanCard moan={moan} />}
+      {replies.length > 0 && (
+        <>
+          <div className="feed-divider"><span>━━━ REPLIES ({replies.length}) ━━━</span></div>
+          {replies.map(r => <MoanCard key={r.id} moan={r} />)}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Feed ────────────────────────────────────────────────────────────────────
 
 type FeedFilter = 'ALL' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
-  filter, onCompose,
+  filter, onCompose, onOpenMoan,
 }: {
   filter: string;
   onCompose: () => void;
+  onOpenMoan?: (id: string) => void;
 }) {
   const upperFilter = filter.toUpperCase() as FeedFilter;
   const isKindFilter = ['MOAN', 'ROAST', 'COPE', 'BANTER'].includes(upperFilter);
@@ -242,7 +324,7 @@ export function Feed({
           NO MOANS HERE YET. BE THE FIRST TO MOAN.
         </div>
       )}
-      {moans?.map(m => <MoanCard key={m.id} moan={m} />)}
+      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} />)}
 
       {moans && moans.length > 0 && (
         <div className="feed-end">

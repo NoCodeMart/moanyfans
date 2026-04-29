@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .db import lifespan
-from .routers import health, me, moans, tags, teams
+from .routers import health, me, moans, share, tags, teams
 
 structlog.configure(
     processors=[
@@ -48,6 +48,7 @@ app.include_router(teams.router)
 app.include_router(me.router)
 app.include_router(moans.router)
 app.include_router(tags.router)
+app.include_router(share.router)
 
 
 @app.get("/")

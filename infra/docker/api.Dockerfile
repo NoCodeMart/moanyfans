@@ -13,9 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 COPY apps/api/pyproject.toml ./
 RUN pip install fastapi 'uvicorn[standard]' asyncpg 'pydantic>=2.9' \
     'pydantic-settings>=2.6' python-dotenv httpx redis 'anthropic>=0.40' structlog \
-    'pyjwt[crypto]>=2.10'
+    'pyjwt[crypto]>=2.10' 'Pillow>=11.0' 'jinja2>=3.1'
 
 COPY apps/api/app ./app
+
+# Templates and font/image assets
+ENV WEB_PUBLIC_BASE=https://moanyfans.77-68-52-69.sslip.io \
+    API_PUBLIC_BASE=https://api.moanyfans.77-68-52-69.sslip.io
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8000/health || exit 1

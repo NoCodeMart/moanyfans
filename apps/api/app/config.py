@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     log_level: str = "INFO"
 
+    # Public URLs for share/OG meta + redirects
+    web_public_base: str = Field(default="https://moanyfans.77-68-52-69.sslip.io")
+    api_public_base: str = Field(default="https://api.moanyfans.77-68-52-69.sslip.io")
+
 
 @lru_cache
 def get_settings() -> Settings:

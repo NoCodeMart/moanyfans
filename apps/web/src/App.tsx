@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Ticker, Wordmark } from './components/Brand';
-import { Composer, Feed, MeProfile, TeamsPage, TrendingRail } from './components/Live';
+import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from './components/Live';
 import { Battle, Leaderboards, LiveThread, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
 
@@ -38,11 +38,20 @@ const TICKER_ITEMS = [
 const FILTERS = ['ALL', 'MOAN', 'ROAST', 'COPE', 'BANTER'];
 const PALETTE_KEYS = Object.keys(PALETTES) as (keyof typeof PALETTES)[];
 
+function readMoanIdFromUrl(): string | null {
+  // Supports /m/<id> path AND ?m=<id> query (the API permalink redirects via ?m=)
+  const path = window.location.pathname.match(/^\/m\/([0-9a-f-]{36})/i);
+  if (path) return path[1];
+  const params = new URLSearchParams(window.location.search);
+  return params.get('m');
+}
+
 export default function App() {
   const [route, setRoute] = useState<Route>('feed');
   const [composerOpen, setComposerOpen] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [palette, setPalette] = useState<keyof typeof PALETTES>('neon');
+  const [activeMoan, setActiveMoan] = useState<string | null>(() => readMoanIdFromUrl());
   const { user, authEnabled, signInUrl } = useCurrentUser();
   const headline = 'BIN THE LOT';
   const density: 'compact' | 'regular' | 'comfy' = 'compact';
@@ -55,6 +64,24 @@ export default function App() {
     r.style.setProperty('--yellow', p.yellow);
     r.style.setProperty('--blue', p.blue);
   }, [palette]);
+
+  // Sync URL with activeMoan so links are shareable + back-button works
+  useEffect(() => {
+    if (activeMoan) {
+      const target = `/m/${activeMoan}`;
+      if (window.location.pathname !== target) {
+        window.history.pushState({ moan: activeMoan }, '', target);
+      }
+    } else if (window.location.pathname.startsWith('/m/') || window.location.search.includes('m=')) {
+      window.history.pushState({}, '', '/');
+    }
+  }, [activeMoan]);
+
+  useEffect(() => {
+    const onPop = () => setActiveMoan(readMoanIdFromUrl());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   const renderTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
@@ -188,7 +215,12 @@ export default function App() {
       </nav>
 
       <main className="main">
-        {route === 'feed' && (
+        {activeMoan && (
+          <div style={{ paddingTop: 16 }}>
+            <MoanDetail moanId={activeMoan} onBack={() => setActiveMoan(null)} />
+          </div>
+        )}
+        {!activeMoan && route === 'feed' && (
           <>
             <div style={{
               padding: '24px 0 24px',
@@ -227,15 +259,17 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <Feed filter={filter} onCompose={() => setComposerOpen(true)} />
+            <Feed filter={filter}
+                  onCompose={() => setComposerOpen(true)}
+                  onOpenMoan={setActiveMoan} />
           </>
         )}
-        {route === 'teams' && <TeamsPage />}
-        {route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
-        {route === 'live' && <DemoBanner><LiveThread /></DemoBanner>}
-        {route === 'battle' && <DemoBanner><Battle /></DemoBanner>}
-        {route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
-        {route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
+        {!activeMoan && route === 'teams' && <TeamsPage />}
+        {!activeMoan && route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
+        {!activeMoan && route === 'live' && <DemoBanner><LiveThread /></DemoBanner>}
+        {!activeMoan && route === 'battle' && <DemoBanner><Battle /></DemoBanner>}
+        {!activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
+        {!activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
       </main>
 
       <aside className="aside">
