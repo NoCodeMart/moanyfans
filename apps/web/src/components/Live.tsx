@@ -124,37 +124,85 @@ function ShareBar({ moan }: { moan: Moan }) {
   const url = `${window.location.origin}/m/${moan.id}`;
   const text = `"${moan.text.slice(0, 140)}${moan.text.length > 140 ? '…' : ''}" — @${moan.user.handle} on Moanyfans`;
   const enc = encodeURIComponent;
-  const links: { label: string; href: string; bg: string }[] = [
-    { label: 'WHATSAPP',  href: `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}`, bg: '#25D366' },
-    { label: 'X / TWITTER', href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`, bg: '#000' },
-    { label: 'FACEBOOK',  href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`, bg: '#1877F2' },
-    { label: 'REDDIT',    href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}`, bg: '#FF4500' },
+  const links: { label: string; href: string; bg: string; icon: ReactNode }[] = [
+    { label: 'WhatsApp',  href: `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}`, bg: '#25D366', icon: <WhatsAppIcon /> },
+    { label: 'X',         href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`, bg: '#000', icon: <XIcon /> },
+    { label: 'Facebook',  href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`, bg: '#1877F2', icon: <FacebookIcon /> },
+    { label: 'Reddit',    href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}`, bg: '#FF4500', icon: <RedditIcon /> },
   ];
+  const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(url).catch(() => {});
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
   };
   return (
     <div style={{
-      display: 'flex', gap: 4, padding: '8px 12px',
+      display: 'flex', gap: 6, padding: '8px 12px', alignItems: 'center',
       borderTop: '1px dashed var(--rule, #c7bfa9)',
-      fontFamily: 'var(--font-display)', fontSize: 11, letterSpacing: '0.05em',
     }}>
-      <span style={{ alignSelf: 'center', opacity: 0.6, marginRight: 4 }}>SHARE →</span>
+      <span style={{ alignSelf: 'center', opacity: 0.55, marginRight: 4,
+                      fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em' }}>SHARE</span>
       {links.map(l => (
         <a key={l.label}
            href={l.href} target="_blank" rel="noopener noreferrer"
+           aria-label={`Share on ${l.label}`}
+           title={`Share on ${l.label}`}
            style={{
-             padding: '4px 8px', background: l.bg, color: '#fff',
+             width: 30, height: 30,
+             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+             background: l.bg, color: '#fff', borderRadius: '50%',
              textDecoration: 'none',
-           }}>{l.label}</a>
+           }}>{l.icon}</a>
       ))}
-      <button type="button" onClick={copy} style={{
-        padding: '4px 8px', background: 'var(--ink)', color: 'var(--cream)',
-        border: 0, fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', cursor: 'pointer',
-      }}>COPY LINK</button>
+      <button type="button" onClick={copy}
+        aria-label="Copy link" title={copied ? 'Copied!' : 'Copy link'}
+        style={{
+          width: 30, height: 30, background: copied ? 'var(--green, #06a77d)' : 'var(--ink)',
+          color: 'var(--cream)', border: 0, borderRadius: '50%',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+        }}>
+        {copied ? <CheckIcon /> : <LinkIcon />}
+      </button>
     </div>
   );
 }
+
+// Brand-faithful share icons (current logos as of 2026)
+const WhatsAppIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+    <path d="M19.05 4.91A9.82 9.82 0 0 0 12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.91-7.01zM12.05 20.15h-.01a8.23 8.23 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.21 8.21 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.23-8.24 8.23zm4.52-6.16c-.25-.12-1.46-.72-1.69-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.97-.14.16-.29.18-.54.06-.25-.12-1.04-.38-1.99-1.22-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.39.11-.51.12-.12.25-.29.37-.43.12-.14.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.41-.56-.42h-.48c-.16 0-.43.06-.66.31-.23.25-.86.84-.86 2.06s.88 2.39 1.01 2.55c.12.16 1.74 2.66 4.21 3.73.59.25 1.05.4 1.4.51.59.19 1.13.16 1.55.1.47-.07 1.46-.6 1.66-1.18.21-.58.21-1.07.14-1.18-.06-.11-.22-.17-.47-.29z"/>
+  </svg>
+);
+const XIcon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+    <path d="M18.244 2H21l-6.553 7.49L22 22h-6.78l-4.78-6.27L4.97 22H2.21l7.014-8.014L2 2h6.93l4.32 5.71L18.244 2zm-2.38 18h1.74L8.21 4H6.36l9.504 16z"/>
+  </svg>
+);
+const FacebookIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+    <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.99 3.66 9.13 8.44 9.88V14.9H7.9V12h2.54V9.8c0-2.51 1.49-3.9 3.78-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.9h-2.34v6.98C18.34 21.13 22 16.99 22 12z"/>
+  </svg>
+);
+const RedditIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+    <path d="M22 12.07a2.18 2.18 0 0 0-3.7-1.55c-1.45-1-3.4-1.65-5.55-1.74l1.13-3.55 3.04.66a1.62 1.62 0 1 0 .15-.94l-3.4-.74-1.27 3.96c-2.21.06-4.21.7-5.7 1.71A2.18 2.18 0 1 0 4.36 14a4.27 4.27 0 0 0-.04.6c0 3.06 3.46 5.55 7.73 5.55s7.73-2.49 7.73-5.55c0-.2-.01-.4-.04-.6A2.18 2.18 0 0 0 22 12.07zM7.5 13.5a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0zm7.84 3.7c-.75.74-2.18 1.07-3.34 1.07s-2.59-.33-3.34-1.07a.4.4 0 0 1 .57-.57c.55.55 1.78.85 2.77.85.99 0 2.22-.3 2.77-.85a.4.4 0 0 1 .57.57zM14 14.75a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/>
+  </svg>
+);
+const LinkIcon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4"
+        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/>
+    <path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>
+  </svg>
+);
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3"
+        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
 
 // ── MoanCard ────────────────────────────────────────────────────────────────
 
