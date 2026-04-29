@@ -292,7 +292,6 @@ export default function App() {
               ))}
             </div>
             <Feed filter={filter}
-                  onCompose={() => setComposerOpen(true)}
                   onOpenMoan={setActiveMoan} />
           </>
         )}

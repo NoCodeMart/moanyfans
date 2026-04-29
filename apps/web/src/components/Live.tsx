@@ -225,17 +225,13 @@ export function MoanCard({ moan, onOpen }: { moan: Moan; onOpen?: (id: string) =
   );
 }
 
-// ── Composer Inline (button on top of feed) ─────────────────────────────────
+// ── Composer Inline (X-style "What's happening?" at top of feed) ───────────
 
-export function ComposerInline({ onCompose }: { onCompose: () => void }) {
-  const { user } = useCurrentUser();
-  const placeholder = user ? `WHAT'S RUINING YOUR DAY, @${user.handle}?` : "WHAT'S RUINING YOUR DAY, FAN?";
+export function ComposerInline() {
   return (
-    <button className="composer-inline" onClick={onCompose} type="button">
-      {user && <UserAvatar user={user as unknown as UserRef} size={44} />}
-      <span className="composer-inline-text">{placeholder}</span>
-      <span className="composer-inline-cta">START MOANING →</span>
-    </button>
+    <div className="composer-inline-card">
+      <ComposerForm variant="inline" />
+    </div>
   );
 }
 
@@ -278,10 +274,9 @@ type FeedFilter = 'ALL' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
-  filter, onCompose, onOpenMoan,
+  filter, onOpenMoan,
 }: {
   filter: string;
-  onCompose: () => void;
   onOpenMoan?: (id: string) => void;
 }) {
   const upperFilter = filter.toUpperCase() as FeedFilter;
@@ -295,7 +290,7 @@ export function Feed({
 
   return (
     <div className="feed">
-      <ComposerInline onCompose={onCompose} />
+      <ComposerInline />
       <div className="feed-divider">
         <span>━━━ FRESH MOANS · UPDATED EVERY 14 SECONDS ━━━</span>
       </div>
@@ -347,23 +342,48 @@ const KINDS: { key: 'MOAN' | 'ROAST' | 'COPE' | 'BANTER'; placeholder: string }[
 ];
 
 export function Composer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="composer-scrim" onClick={onClose}>
+      <div className="composer-sheet" onClick={e => e.stopPropagation()}
+           role="dialog" aria-modal="true" aria-label="Compose a moan">
+        <div className="composer-topbar">
+          <button className="composer-close" onClick={onClose} type="button"
+                   aria-label="Close composer">✕</button>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
+                          letterSpacing: '0.1em', opacity: 0.6 }}>NEW MOAN</span>
+        </div>
+        <ComposerForm variant="modal" autoFocus onPosted={onClose} />
+      </div>
+    </div>
+  );
+}
+
+function ComposerForm({
+  variant, autoFocus, onPosted,
+}: {
+  variant: 'inline' | 'modal';
+  autoFocus?: boolean;
+  onPosted?: () => void;
+}) {
   const { user } = useCurrentUser();
   const { data: teams = [] } = useTeams();
   const create = useCreateMoan();
   const [kind, setKind] = useState<'MOAN' | 'ROAST' | 'COPE' | 'BANTER'>('MOAN');
-  const [teamSlug, setTeamSlug] = useState<string>('');
+  const [teamSlug, setTeamSlug] = useState<string>(() => user?.team_slug ?? '');
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<boolean>(variant === 'modal');
 
-  // Default the team selector to the user's team once teams load
   useEffect(() => {
-    if (open && !teamSlug && user?.team_slug) setTeamSlug(user.team_slug);
-  }, [open, user?.team_slug, teamSlug]);
+    if (!teamSlug && user?.team_slug) setTeamSlug(user.team_slug);
+  }, [user?.team_slug, teamSlug]);
 
-  if (!open) return null;
   const max = 280;
   const remaining = max - text.length;
-  const placeholder = KINDS.find(k => k.key === kind)?.placeholder ?? '';
+  const placeholder = variant === 'inline' && !expanded
+    ? `What's ruining your day${user ? `, @${user.handle}` : ''}?`
+    : (KINDS.find(k => k.key === kind)?.placeholder ?? '');
   const selectedTeam = teamSlug ? teams.find(t => t.slug === teamSlug) ?? null : null;
 
   const submit = async () => {
@@ -377,7 +397,8 @@ export function Composer({ open, onClose }: { open: boolean; onClose: () => void
         setError('Moan held for review. It will publish if approved.');
       } else {
         setText('');
-        onClose();
+        setExpanded(variant === 'modal');
+        onPosted?.();
       }
     } catch (e) {
       setError((e as Error).message);
@@ -385,48 +406,36 @@ export function Composer({ open, onClose }: { open: boolean; onClose: () => void
   };
 
   return (
-    <div className="composer-scrim" onClick={onClose}>
-      <div className="composer-sheet" onClick={e => e.stopPropagation()}
-           role="dialog" aria-modal="true" aria-label="Compose a moan">
-        {/* Top bar — close + post button (right) */}
-        <div className="composer-topbar">
-          <button className="composer-close" onClick={onClose} type="button"
-                   aria-label="Close composer">✕</button>
-          <button
-            className="composer-post"
-            type="button"
-            disabled={!text.trim() || create.isPending}
-            onClick={submit}
-          >{create.isPending ? '…' : 'MOAN'}</button>
-        </div>
-
-        {/* Body: avatar + writeable area */}
-        <div className="composer-body">
-          {user && <UserAvatar user={user} size={48} />}
-          <div style={{ flex: 1, minWidth: 0 }}>
+    <>
+      <div className="composer-body">
+        {user && <UserAvatar user={user} size={44} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {expanded && (
             <TeamPicker teams={teams} selected={selectedTeam}
                          onPick={(slug) => setTeamSlug(slug ?? '')} />
-            <textarea
-              className="composer-input"
-              placeholder={placeholder}
-              value={text} maxLength={max}
-              onChange={e => setText(e.target.value)}
-              autoFocus
-              rows={4}
-            />
-          </div>
+          )}
+          <textarea
+            className="composer-input"
+            placeholder={placeholder}
+            value={text} maxLength={max}
+            onChange={e => setText(e.target.value)}
+            onFocus={() => setExpanded(true)}
+            autoFocus={autoFocus}
+            rows={expanded ? 4 : 2}
+          />
         </div>
+      </div>
 
-        {error && (
-          <div style={{
-            margin: '0 16px 8px',
-            padding: 10, fontSize: 13,
-            background: 'var(--red)', color: 'var(--cream)',
-            fontFamily: 'var(--font-mono)',
-          }}>{error}</div>
-        )}
+      {error && (
+        <div style={{
+          margin: '0 16px 8px',
+          padding: 10, fontSize: 13,
+          background: 'var(--red)', color: 'var(--cream)',
+          fontFamily: 'var(--font-mono)',
+        }}>{error}</div>
+      )}
 
-        {/* Bottom action row: kind chips + counter */}
+      {expanded && (
         <div className="composer-actions">
           <div className="composer-kind-row">
             {KINDS.map(k => (
@@ -436,13 +445,20 @@ export function Composer({ open, onClose }: { open: boolean; onClose: () => void
                 title={k.key}>{k.key}</button>
             ))}
           </div>
-          <div className="composer-counter" data-warn={remaining < 20 ? '1' : undefined}
-                data-over={remaining < 0 ? '1' : undefined}>
-            {remaining}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="composer-counter"
+                  data-warn={remaining < 20 ? '1' : undefined}
+                  data-over={remaining < 0 ? '1' : undefined}>{remaining}</div>
+            <button
+              className="composer-post"
+              type="button"
+              disabled={!text.trim() || create.isPending}
+              onClick={submit}
+            >{create.isPending ? '…' : 'MOAN'}</button>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
