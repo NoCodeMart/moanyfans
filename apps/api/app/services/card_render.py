@@ -179,9 +179,9 @@ def render_moan_card(
     react_font = ImageFont.truetype(FONT_DISPLAY, 30)
     mono_font = ImageFont.truetype(FONT_MONO, 18)
     pieces = [
-        ("HA", _fmt_count(laughs)),
-        ("✓", _fmt_count(agrees)),
-        ("COPE", _fmt_count(cope)),
+        ("HA",    _fmt_count(laughs)),
+        ("AGR",   _fmt_count(agrees)),
+        ("COPE",  _fmt_count(cope)),
         ("RATIO", _fmt_count(ratio)),
     ]
     rx = PADDING
