@@ -96,43 +96,64 @@ async def _upsert_event(conn: asyncpg.Connection, e: Event) -> str:
 # ── Initial backfill (one-time per league) ──────────────────────────────────
 
 async def initial_backfill(pool: asyncpg.Pool, client: httpx.AsyncClient) -> dict[str, int]:
-    """Walk every (league × round) for the current season.
+    """Pull only UPCOMING fixtures (SCHEDULED + LIVE) per league.
 
-    Skips a league if we already have any fixtures for that competition string,
-    so this is safe to run on every container start — only does real work on
-    a fresh DB or a brand-new league.
+    Walks rounds from latest → earliest. Stops as soon as it finds a round
+    where every event is FT — assumes earlier rounds are also fully done.
+    Result: typically ~3-6 API calls per league instead of all 38-46 rounds.
+
+    Idempotent: re-running just refreshes the same upcoming rounds.
     """
     new_total = 0
+    updated_total = 0
     skipped_total = 0
-    async with pool.acquire() as conn:
-        existing_competitions = {
-            r["competition"]
-            for r in await conn.fetch(
-                "SELECT DISTINCT competition FROM fixtures WHERE external_id IS NOT NULL"
-            )
-        }
+    rounds_pulled = 0
+
     for league in sportsdb.LEAGUES:
-        ts_competition = next(
-            (raw for raw, mapped in sportsdb.LEAGUE_MAP.items() if mapped == league["name"]),
-            None,
-        )
-        if ts_competition and ts_competition in existing_competitions:
-            log.info("backfill_skip_league", league=league["name"])
-            continue
-        log.info("backfill_starting_league", league=league["name"], rounds=league["rounds"])
-        for round_n in range(1, league["rounds"] + 1):
+        log.info("upcoming_sync_league", league=league["name"])
+        consecutive_done_rounds = 0
+        # Walk rounds from latest to earliest
+        for round_n in range(league["rounds"], 0, -1):
             events = await sportsdb._fetch_round(  # type: ignore[attr-defined]
                 client, league["id"], round_n, sportsdb.DEFAULT_SEASON,
             )
+            rounds_pulled += 1
+            await asyncio.sleep(1.5)  # polite to free API
+
+            if not events:
+                # Empty round (e.g. season hasn't reached this round yet)
+                continue
+
+            # Only persist SCHEDULED or LIVE events; ignore FT entirely
+            upcoming_events = [e for e in events if e.status in ("SCHEDULED", "LIVE")]
+            if not upcoming_events:
+                consecutive_done_rounds += 1
+                # Two consecutive all-FT rounds in a row → assume the rest of
+                # the season is past, stop walking. (Two not one, in case a
+                # late-rescheduled match makes a round look empty.)
+                if consecutive_done_rounds >= 2:
+                    log.info(
+                        "upcoming_sync_league_done",
+                        league=league["name"], stopped_at_round=round_n,
+                    )
+                    break
+                continue
+
+            consecutive_done_rounds = 0
             async with pool.acquire() as conn:
-                for e in events:
+                for e in upcoming_events:
                     result = await _upsert_event(conn, e)
                     if result == "new":
                         new_total += 1
+                    elif result == "updated":
+                        updated_total += 1
                     elif result == "skipped":
                         skipped_total += 1
-            await asyncio.sleep(1.5)  # polite to free API
-    return {"new": new_total, "skipped_no_team": skipped_total}
+
+    return {
+        "new": new_total, "updated": updated_total,
+        "skipped_no_team": skipped_total, "rounds_pulled": rounds_pulled,
+    }
 
 
 # ── Incremental refresh (every 4 hours) ─────────────────────────────────────
