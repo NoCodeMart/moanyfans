@@ -1,7 +1,7 @@
 import {
   type UseQueryOptions, useMutation, useQuery, useQueryClient,
 } from '@tanstack/react-query';
-import { api, type CreateMoan, type Fixture, type Moan, type ReactionKind, type Side, type Team, type ThreadItem } from './api';
+import { api, type CreateMoan, type CurrentUser, type Fixture, type Moan, type ProfileStats, type ReactionKind, type Side, type Team, type ThreadItem, type UpdateMe } from './api';
 
 export function useTeams(league?: string) {
   return useQuery<Team[]>({
@@ -110,6 +110,32 @@ export function useFixtureThread(id: string | null, side?: Side) {
     queryFn: () => api.getFixtureThread(id!, side),
     enabled: !!id,
     refetchInterval: 3000,
+  });
+}
+
+export function useMyStats() {
+  return useQuery<ProfileStats>({
+    queryKey: ['me', 'stats'],
+    queryFn: () => api.myStats(),
+    staleTime: 30_000,
+  });
+}
+
+export function useMyMoans(limit = 20) {
+  return useQuery<Moan[]>({
+    queryKey: ['me', 'moans', limit],
+    queryFn: () => api.myMoans(limit),
+    staleTime: 15_000,
+  });
+}
+
+export function useUpdateMe() {
+  const qc = useQueryClient();
+  return useMutation<CurrentUser, Error, UpdateMe>({
+    mutationFn: (body) => api.updateMe(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+    },
   });
 }
 

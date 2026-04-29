@@ -8,7 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api, type Moan, type ReactionKind, type Team, type UserRef } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import {
-  useCreateMoan, useFeed, useReact, useSetTeam, useTeams, useTrendingTags,
+  useCreateMoan, useFeed, useMyMoans, useMyStats, useReact, useSetTeam,
+  useTeams, useTrendingTags, useUpdateMe,
 } from '../lib/hooks';
 
 // ── Avatar / Crest helpers (API-shape) ──────────────────────────────────────
@@ -808,44 +809,250 @@ export function TeamsPage({ onPickTeam }: { onPickTeam?: (team: Team) => void })
 
 // ── My profile (real /me data) ──────────────────────────────────────────────
 
+// Wrapper avatar that prefers DiceBear-rendered SVG when the user has set a style.
+function ProfileAvatar({ user, size = 140 }:
+  { user: { handle: string; team_id?: string | null; avatar_seed?: string | null; avatar_style?: string | null }; size?: number }) {
+  const seed = user.avatar_seed || user.handle;
+  if (user.avatar_style) {
+    const url = `https://api.dicebear.com/9.x/${encodeURIComponent(user.avatar_style)}/svg?seed=${encodeURIComponent(seed)}`;
+    return (
+      <span style={{
+        width: size, height: size, display: 'inline-block',
+        borderRadius: '50%', overflow: 'hidden',
+        border: '3px solid var(--ink)',
+        boxShadow: '4px 4px 0 var(--ink)',
+        background: 'var(--cream)',
+      }}>
+        <img src={url} alt={`@${user.handle} avatar`} width={size} height={size}
+              style={{ display: 'block', width: '100%', height: '100%' }} />
+      </span>
+    );
+  }
+  return <UserAvatar user={user as unknown as UserRef} size={size} />;
+}
+
 export function MeProfile({ onPickTeam }: { onPickTeam: () => void }): ReactNode {
   const { user, authEnabled } = useCurrentUser();
   const { data: teams = [] } = useTeams();
+  const stats = useMyStats();
+  const myMoans = useMyMoans(20);
+  const update = useUpdateMe();
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioDraft, setBioDraft] = useState('');
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
   const myTeam = teams.find(t => t.id === user?.team_id);
+
   if (!user) {
     return <div style={{ fontFamily: 'var(--font-mono)' }}>LOADING DOSSIER…</div>;
   }
+
+  const startEditBio = () => {
+    setBioDraft(user.bio ?? '');
+    setEditingBio(true);
+  };
+  const saveBio = async () => {
+    try {
+      await update.mutateAsync({ bio: bioDraft });
+      setEditingBio(false);
+    } catch {/* ignore */}
+  };
+
   return (
-    <div className="profile" style={{ paddingTop: 16 }}>
-      <div className="profile-header" style={{ position: 'relative', minHeight: 200 }}>
-        <div className="profile-bg" style={{
-          position: 'absolute', inset: 0, background: myTeam?.primary_color ?? 'var(--ink)',
-        }}>
-          <div className="halftone" style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: 'radial-gradient(rgba(0,0,0,0.3) 1.2px, transparent 1.4px)',
-            backgroundSize: '8px 8px',
-          }} />
+    <div className="profile-page">
+      {/* Banner */}
+      <div className="profile-banner" style={{ background: myTeam?.primary_color ?? 'var(--ink)' }}>
+        <div className="profile-banner-grain" />
+      </div>
+
+      {/* Identity row */}
+      <div className="profile-id-row">
+        <button type="button" className="profile-avatar-btn"
+                 onClick={() => setShowAvatarPicker(true)}
+                 aria-label="Change avatar">
+          <ProfileAvatar user={user} size={120} />
+          <span className="profile-avatar-edit">EDIT</span>
+        </button>
+        <div className="profile-id-text">
+          <div className="profile-handle">@{user.handle}</div>
+          <div className="profile-meta">
+            {myTeam ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span className="profile-team-dot" style={{ background: myTeam.primary_color }} />
+                {myTeam.name}
+              </span>
+            ) : (<span style={{ opacity: 0.6 }}>No team yet</span>)}
+            {user.created_at && (
+              <span style={{ opacity: 0.55 }}>· joined {new Date(user.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
+            )}
+          </div>
         </div>
-        <div className="profile-id" style={{ position: 'relative', zIndex: 1 }}>
-          <UserAvatar user={user as unknown as UserRef} size={140} />
-          <div className="profile-id-text">
-            <div className="profile-handle">@{user.handle}</div>
-            <div className="profile-team-line" style={{ color: myTeam?.primary_color ?? '#fff' }}>
-              {myTeam ? <TeamCrest team={myTeam} size={28} /> : null}
-              {myTeam ? `${myTeam.name} · CARD-CARRYING SUFFERER` : 'NO TEAM YET — PICK ONE'}
+        <button className="profile-team-btn" type="button" onClick={onPickTeam}>
+          {myTeam ? 'CHANGE TEAM' : 'PICK TEAM'}
+        </button>
+      </div>
+
+      {/* Bio */}
+      <div className="profile-bio">
+        {editingBio ? (
+          <>
+            <textarea
+              value={bioDraft}
+              onChange={(e) => setBioDraft(e.target.value)}
+              maxLength={200}
+              rows={3}
+              placeholder="Add a one-line bio. Be honest."
+              className="profile-bio-input"
+            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.6 }}>
+                {200 - bioDraft.length} / 200
+              </span>
+              <span style={{ flex: 1 }} />
+              <button type="button" onClick={() => setEditingBio(false)} className="profile-btn-ghost">CANCEL</button>
+              <button type="button" onClick={saveBio} disabled={update.isPending} className="profile-btn-solid">SAVE</button>
             </div>
-            <div style={{ marginTop: 12 }}>
-              <button className="btn-primary" onClick={onPickTeam} type="button">
-                {myTeam ? 'CHANGE TEAM' : 'PICK YOUR TEAM'}
-              </button>
-              {!authEnabled && (
-                <span style={{
-                  marginLeft: 16, fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.6,
-                }}>AUTH DISABLED · ACTING AS GUEST</span>
-              )}
+          </>
+        ) : (
+          <div onClick={startEditBio} className="profile-bio-display">
+            {user.bio ? user.bio : <span style={{ opacity: 0.55 }}>Add a bio…</span>}
+            <span className="profile-bio-edit">edit</span>
+          </div>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="profile-stats">
+        <Stat label="MOANS" value={stats.data?.moans ?? 0} />
+        <Stat label="HA" value={stats.data?.laughs_received ?? 0} colour="var(--yellow)" />
+        <Stat label="AGR" value={stats.data?.agrees_received ?? 0} colour="var(--green, #06a77d)" />
+        <Stat label="COPE" value={stats.data?.cope_received ?? 0} colour="var(--blue)" />
+        <Stat label="RATIO" value={stats.data?.ratio_received ?? 0} colour="var(--red)" />
+        <Stat label="STREAK" value={stats.data?.streak_days ?? 0} suffix="d" />
+      </div>
+
+      {!authEnabled && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.5,
+                        margin: '8px 0' }}>AUTH DISABLED · ACTING AS GUEST</div>
+      )}
+
+      {/* Recent moans */}
+      <div className="feed-divider"><span>━━━ YOUR RECENT MOANS ━━━</span></div>
+      {myMoans.isLoading && <div style={{ fontFamily: 'var(--font-mono)' }}>LOADING…</div>}
+      {!myMoans.isLoading && (myMoans.data?.length ?? 0) === 0 && (
+        <div style={{ fontFamily: 'var(--font-mono)', textAlign: 'center', padding: 32, opacity: 0.55 }}>
+          NO MOANS YET. GET ONE OFF YOUR CHEST.
+        </div>
+      )}
+      {myMoans.data?.map(m => <MoanCard key={m.id} moan={m} />)}
+
+      {showAvatarPicker && (
+        <AvatarPicker user={user}
+                       onClose={() => setShowAvatarPicker(false)}
+                       onSave={async (style, seed) => {
+                         await update.mutateAsync({ avatar_style: style, avatar_seed: seed });
+                         setShowAvatarPicker(false);
+                       }} />
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, colour, suffix }:
+  { label: string; value: number; colour?: string; suffix?: string }) {
+  return (
+    <div className="profile-stat">
+      <div className="profile-stat-num" style={colour ? { color: colour } : undefined}>
+        {value.toLocaleString()}{suffix ?? ''}
+      </div>
+      <div className="profile-stat-lbl">{label}</div>
+    </div>
+  );
+}
+
+const AVATAR_STYLES = [
+  { id: 'avataaars', label: 'AVATAR' },
+  { id: 'lorelei', label: 'PORTRAIT' },
+  { id: 'bottts', label: 'ROBOT' },
+  { id: 'fun-emoji', label: 'EMOJI' },
+  { id: 'identicon', label: 'PIXEL' },
+  { id: 'thumbs', label: 'THUMB' },
+  { id: 'big-smile', label: 'SMILE' },
+  { id: 'micah', label: 'SKETCH' },
+  { id: 'pixel-art', label: 'RETRO' },
+  { id: 'shapes', label: 'SHAPES' },
+] as const;
+
+function AvatarPicker({ user, onClose, onSave }: {
+  user: { handle: string; avatar_seed: string | null; avatar_style: string | null };
+  onClose: () => void;
+  onSave: (style: string, seed: string) => Promise<void> | void;
+}) {
+  const [style, setStyle] = useState<string>(user.avatar_style ?? 'avataaars');
+  const [seed, setSeed] = useState<string>(user.avatar_seed ?? user.handle);
+  const url = `https://api.dicebear.com/9.x/${encodeURIComponent(style)}/svg?seed=${encodeURIComponent(seed)}`;
+  const randomise = () => setSeed(Math.random().toString(36).slice(2, 12));
+  return (
+    <div className="ob-scrim" onClick={onClose}>
+      <div className="ob-card" onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 460, alignSelf: 'center', margin: 'auto' }}>
+        <div className="ob-header">
+          <div className="ob-step-no">CHANGE AVATAR</div>
+          <button type="button" onClick={onClose} className="ob-skip">CLOSE ✕</button>
+        </div>
+        <div className="ob-body">
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
+            <span style={{
+              width: 100, height: 100, borderRadius: '50%', overflow: 'hidden',
+              border: '3px solid var(--ink)', boxShadow: '4px 4px 0 var(--red)',
+              background: 'var(--cream)', display: 'inline-block',
+            }}>
+              <img src={url} alt="preview" width={100} height={100}
+                    style={{ display: 'block', width: '100%', height: '100%' }} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <input
+                value={seed}
+                onChange={(e) => setSeed(e.target.value)}
+                placeholder="Seed"
+                className="ob-input" style={{ marginBottom: 6 }}
+              />
+              <button type="button" onClick={randomise} className="profile-btn-ghost"
+                       style={{ width: '100%' }}>RANDOMISE</button>
             </div>
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {AVATAR_STYLES.map(s => {
+              const thumbUrl = `https://api.dicebear.com/9.x/${s.id}/svg?seed=${encodeURIComponent(seed)}`;
+              const active = style === s.id;
+              return (
+                <button
+                  key={s.id} type="button"
+                  onClick={() => setStyle(s.id)}
+                  style={{
+                    background: active ? 'var(--ink)' : 'var(--cream)',
+                    border: `2px solid ${active ? 'var(--red)' : 'var(--ink)'}`,
+                    padding: 4, cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  }}
+                  title={s.label}
+                >
+                  <img src={thumbUrl} alt={s.label} width={48} height={48}
+                        style={{ background: 'var(--cream)' }} />
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.05em',
+                    color: active ? 'var(--cream)' : 'var(--ink)',
+                  }}>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="ob-footer">
+          <span style={{ flex: 1 }} />
+          <button type="button" onClick={() => onSave(style, seed)} className="ob-next">
+            SAVE AVATAR
+          </button>
         </div>
       </div>
     </div>

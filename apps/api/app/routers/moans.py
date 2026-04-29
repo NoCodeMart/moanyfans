@@ -165,6 +165,9 @@ async def list_feed(
     kind: MoanKind | None = None,
     sport: str | None = None,
     league: str | None = None,
+    user_handle: str | None = Query(default=None, alias="user",
+                                     description="Filter by author handle"),
+    mine: bool = Query(default=False, description="Only the signed-in user's moans"),
     limit: int = Query(default=50, ge=1, le=100),
     before: str | None = Query(default=None, description="Cursor: ISO timestamp"),
 ) -> list[MoanOut]:
@@ -188,6 +191,12 @@ async def list_feed(
     if league:
         args.append(league)
         sql += f" AND t.league = ${len(args)}"
+    if mine:
+        args.append(user.id)
+        sql += f" AND m.user_id = ${len(args)}"
+    elif user_handle:
+        args.append(user_handle.upper())
+        sql += f" AND u.handle = ${len(args)}"
     if before:
         args.append(before)
         sql += f" AND m.created_at < ${len(args)}::timestamptz"

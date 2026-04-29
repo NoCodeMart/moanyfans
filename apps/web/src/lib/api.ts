@@ -15,6 +15,25 @@ export type CurrentUser = {
   is_house_account: boolean;
   auth_enabled: boolean;
   can_switch_team_at: string | null;
+  bio: string | null;
+  avatar_seed: string | null;
+  avatar_style: string | null;
+  created_at: string | null;
+};
+
+export type ProfileStats = {
+  moans: number;
+  laughs_received: number;
+  agrees_received: number;
+  cope_received: number;
+  ratio_received: number;
+  streak_days: number;
+};
+
+export type UpdateMe = {
+  bio?: string | null;
+  avatar_seed?: string | null;
+  avatar_style?: string | null;
 };
 
 export type Team = {
@@ -199,6 +218,13 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify({ team_slug }),
   }),
+  updateMe: (body: UpdateMe) => request<CurrentUser>('/me', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  }),
+  myStats: () => request<ProfileStats>('/me/stats'),
+  myMoans: (limit = 20) =>
+    request<Moan[]>(`/moans?mine=true&limit=${limit}`),
 
   listTeams: (league?: string) =>
     request<Team[]>(`/teams${league ? `?league=${encodeURIComponent(league)}` : ''}`),

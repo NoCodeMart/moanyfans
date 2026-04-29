@@ -1534,3 +1534,113 @@ body[data-dark="1"] {
   .ob-headline { font-size: 28px; }
   .ob-team-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
+
+/* ═══ PROFILE PAGE ═══ */
+.profile-page { padding-top: 8px; }
+.profile-banner {
+  position: relative; height: 140px;
+  border: 3px solid var(--ink); border-bottom: 0;
+  overflow: hidden;
+}
+.profile-banner-grain {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(0,0,0,0.3) 1.2px, transparent 1.4px);
+  background-size: 8px 8px;
+  pointer-events: none;
+}
+.profile-id-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 16px;
+  margin-top: -64px;
+  position: relative; z-index: 1;
+}
+.profile-avatar-btn {
+  background: transparent; border: 0; padding: 0; position: relative;
+  display: inline-block; cursor: pointer;
+}
+.profile-avatar-edit {
+  position: absolute; right: 0; bottom: 4px;
+  background: var(--red); color: var(--cream);
+  font-family: var(--font-display); font-size: 10px;
+  letter-spacing: 0.1em; padding: 2px 7px;
+  border: 2px solid var(--ink);
+}
+.profile-id-text { flex: 1; min-width: 0; padding-top: 60px; }
+.profile-handle {
+  font-family: var(--font-display); font-size: 32px; line-height: 1;
+  letter-spacing: 0.02em;
+}
+.profile-meta {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em;
+  margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap;
+}
+.profile-team-dot {
+  width: 12px; height: 12px; border-radius: 50%; display: inline-block;
+  border: 1.5px solid var(--ink);
+}
+.profile-team-btn {
+  background: var(--ink); color: var(--cream); border: 0;
+  padding: 8px 14px; cursor: pointer;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: 0.05em;
+  align-self: flex-end; margin-bottom: 8px;
+}
+
+.profile-bio {
+  margin: 16px 0 16px; padding: 14px;
+  background: var(--paper); border: 2px dashed var(--rule);
+}
+.profile-bio-display {
+  font-family: var(--font-body); font-size: 16px; line-height: 1.4;
+  cursor: text; min-height: 22px;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.profile-bio-display:hover .profile-bio-edit { opacity: 1; }
+.profile-bio-edit {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.1em; opacity: 0.4;
+  margin-left: auto; align-self: center;
+  background: var(--cream-2); padding: 2px 6px;
+}
+.profile-bio-input {
+  width: 100%;
+  background: var(--cream); border: 2px solid var(--ink);
+  padding: 10px;
+  font-family: var(--font-body); font-size: 15px; line-height: 1.4;
+  color: var(--ink); resize: vertical;
+}
+.profile-btn-ghost {
+  background: transparent; color: var(--ink); border: 1.5px solid var(--ink);
+  padding: 6px 14px; font-family: var(--font-display); font-size: 12px;
+  letter-spacing: 0.05em; cursor: pointer;
+}
+.profile-btn-solid {
+  background: var(--red); color: var(--cream); border: 0;
+  padding: 7px 16px; font-family: var(--font-display); font-size: 13px;
+  letter-spacing: 0.05em; cursor: pointer;
+}
+.profile-btn-solid:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.profile-stats {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 6px; margin-bottom: 8px;
+}
+.profile-stat {
+  background: var(--paper); border: 2px solid var(--ink);
+  padding: 10px 6px; text-align: center;
+}
+.profile-stat-num {
+  font-family: var(--font-display); font-size: 22px; line-height: 1;
+}
+.profile-stat-lbl {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.1em; opacity: 0.7; margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  .profile-banner { height: 96px; }
+  .profile-id-row { flex-wrap: wrap; gap: 12px; padding: 0 6px; margin-top: -48px; }
+  .profile-id-text { padding-top: 48px; }
+  .profile-handle { font-size: 24px; }
+  .profile-team-btn { align-self: flex-start; margin-bottom: 0; }
+  .profile-stats { grid-template-columns: repeat(3, 1fr); }
+}
