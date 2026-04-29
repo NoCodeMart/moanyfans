@@ -193,6 +193,88 @@ async def add_event(
     )
 
 
+class ThreadItem(BaseModel):
+    """Unified item in the live thread — either an auto event or a fan moan."""
+    type: str  # 'event' | 'moan'
+    minute: int
+    created_at: str
+    # event-only
+    text: str | None = None
+    source: str | None = None
+    # moan-only
+    moan_id: str | None = None
+    user_handle: str | None = None
+    user_avatar_seed: str | None = None
+    kind: str | None = None
+    side: str | None = None
+    laughs: int | None = None
+    agrees: int | None = None
+    cope: int | None = None
+    ratio: int | None = None
+    is_house: bool | None = None
+
+
+@router.get("/{fixture_id}/thread", response_model=list[ThreadItem])
+async def get_thread(fixture_id: str, request: Request,
+                     side: str | None = Query(default=None,
+                         description="HOME | AWAY | NEUTRAL — filter user moans only"),
+                     limit_moans: int = Query(default=200, ge=1, le=500)) -> list[ThreadItem]:
+    """Interleaved live thread: auto events + fan moans for this fixture.
+
+    Sorted by (minute desc, created_at desc) — newest first like a chat
+    feed scrolled to the top of the page. Frontend reverses for chronological
+    rendering if it wants.
+    """
+    pool = request.app.state.pool
+    moan_sql = (
+        "SELECT m.id::text AS moan_id, m.text, m.kind, m.side, m.match_minute,"
+        "       m.created_at, m.laughs, m.agrees, m.cope, m.ratio,"
+        "       u.handle, u.avatar_seed, u.is_house_account "
+        "  FROM moans m JOIN users u ON u.id = m.user_id "
+        " WHERE m.fixture_id = $1 AND m.deleted_at IS NULL AND m.status = 'PUBLISHED'"
+    )
+    args: list = [fixture_id]
+    if side and side.upper() in ("HOME", "AWAY", "NEUTRAL"):
+        args.append(side.upper())
+        moan_sql += f" AND m.side = ${len(args)}"
+    args.append(limit_moans)
+    moan_sql += f" ORDER BY m.created_at DESC LIMIT ${len(args)}"
+
+    async with pool.acquire() as conn:
+        events = await conn.fetch(
+            "SELECT minute, text, source, created_at "
+            "  FROM live_thread_events WHERE fixture_id = $1",
+            fixture_id,
+        )
+        moans = await conn.fetch(moan_sql, *args)
+
+    items: list[ThreadItem] = []
+    for r in events:
+        ts = r["created_at"] if r["created_at"].tzinfo else r["created_at"].replace(tzinfo=UTC)
+        items.append(ThreadItem(
+            type="event", minute=r["minute"], created_at=ts.isoformat(),
+            text=r["text"], source=r["source"],
+        ))
+    for r in moans:
+        ts = r["created_at"] if r["created_at"].tzinfo else r["created_at"].replace(tzinfo=UTC)
+        items.append(ThreadItem(
+            type="moan",
+            minute=r["match_minute"] or 0,
+            created_at=ts.isoformat(),
+            text=r["text"],
+            moan_id=r["moan_id"],
+            user_handle=r["handle"],
+            user_avatar_seed=r["avatar_seed"],
+            kind=r["kind"],
+            side=r["side"],
+            laughs=r["laughs"], agrees=r["agrees"],
+            cope=r["cope"], ratio=r["ratio"],
+            is_house=r["is_house_account"],
+        ))
+    items.sort(key=lambda it: (it.minute, it.created_at), reverse=True)
+    return items
+
+
 @router.get("/{fixture_id}/stream")
 async def stream_events(fixture_id: str, request: Request) -> StreamingResponse:
     """Server-Sent Events stream of new events for this fixture.

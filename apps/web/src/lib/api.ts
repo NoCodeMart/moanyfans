@@ -139,6 +139,8 @@ export type BattleMsg = {
   created_at: string;
 };
 
+export type Side = 'HOME' | 'AWAY' | 'NEUTRAL';
+
 export type CreateMoan = {
   kind: MoanKind;
   text: string;
@@ -146,6 +148,26 @@ export type CreateMoan = {
   target_handle?: string;
   parent_moan_id?: string;
   rage_level?: number;
+  fixture_id?: string;
+  side?: Side;
+};
+
+export type ThreadItem = {
+  type: 'event' | 'moan';
+  minute: number;
+  created_at: string;
+  text: string | null;
+  source: string | null;
+  moan_id: string | null;
+  user_handle: string | null;
+  user_avatar_seed: string | null;
+  kind: MoanKind | null;
+  side: Side | null;
+  laughs: number | null;
+  agrees: number | null;
+  cope: number | null;
+  ratio: number | null;
+  is_house: boolean | null;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -221,6 +243,8 @@ export const api = {
   },
   getFixture: (id: string) => request<Fixture>(`/fixtures/${id}`),
   listFixtureEvents: (id: string) => request<LiveEvent[]>(`/fixtures/${id}/events`),
+  getFixtureThread: (id: string, side?: Side) =>
+    request<ThreadItem[]>(`/fixtures/${id}/thread${side ? `?side=${side}` : ''}`),
   fixtureStreamUrl: (id: string) => `${API_URL}/fixtures/${id}/stream`,
 
   listBattles: (status?: BattleStatus) =>

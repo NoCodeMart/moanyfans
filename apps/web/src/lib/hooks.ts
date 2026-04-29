@@ -1,7 +1,7 @@
 import {
   type UseQueryOptions, useMutation, useQuery, useQueryClient,
 } from '@tanstack/react-query';
-import { api, type CreateMoan, type Moan, type ReactionKind, type Team } from './api';
+import { api, type CreateMoan, type Fixture, type Moan, type ReactionKind, type Side, type Team, type ThreadItem } from './api';
 
 export function useTeams(league?: string) {
   return useQuery<Team[]>({
@@ -93,6 +93,24 @@ function applyOptimisticReaction(m: Moan, next: ReactionKind | null): Moan {
   }
   result.your_reaction = next;
   return result;
+}
+
+export function useFixture(id: string | null) {
+  return useQuery<Fixture>({
+    queryKey: ['fixture', id],
+    queryFn: () => api.getFixture(id!),
+    enabled: !!id,
+    refetchInterval: 5000,
+  });
+}
+
+export function useFixtureThread(id: string | null, side?: Side) {
+  return useQuery<ThreadItem[]>({
+    queryKey: ['fixture-thread', id, side ?? 'all'],
+    queryFn: () => api.getFixtureThread(id!, side),
+    enabled: !!id,
+    refetchInterval: 3000,
+  });
 }
 
 export function useSetTeam() {

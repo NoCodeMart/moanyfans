@@ -8,6 +8,7 @@ import {
   api, type Battle, type BattleMsg, type Fixture, type LiveEvent,
 } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
+import { LiveThread } from './LiveThread';
 
 // ── Time helpers ────────────────────────────────────────────────────────────
 function timeUntil(iso: string): string {
@@ -157,7 +158,14 @@ export function LiveMoanAlong() {
         />
       ))}
 
-      {activeFixture && <FixtureLiveThread key={activeFixture.id} fixture={activeFixture} />}
+      {activeFixture && activeFixture.status === 'LIVE' && (
+        <div style={{ marginTop: 24 }}>
+          <LiveThread fixtureId={activeFixture.id} onClose={() => setActiveId(null)} />
+        </div>
+      )}
+      {activeFixture && activeFixture.status !== 'LIVE' && (
+        <FixtureLiveThread key={activeFixture.id} fixture={activeFixture} />
+      )}
     </div>
   );
 }

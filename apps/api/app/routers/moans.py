@@ -67,6 +67,8 @@ class CreateMoan(BaseModel):
     target_handle: str | None = None
     parent_moan_id: str | None = None
     rage_level: int = Field(default=5, ge=0, le=10)
+    fixture_id: str | None = None
+    side: Literal["HOME", "AWAY", "NEUTRAL"] | None = None
 
 
 class ReactionRequest(BaseModel):
@@ -266,6 +268,24 @@ async def create_moan(
             if parent_status != "PUBLISHED":
                 raise HTTPException(400, "Parent moan is not available for reply")
 
+        # Live moan: validate fixture, derive match minute server-side
+        match_minute: int | None = None
+        if body.fixture_id:
+            from datetime import UTC, datetime
+            fx = await conn.fetchrow(
+                "SELECT kickoff_at, status FROM fixtures WHERE id = $1",
+                body.fixture_id,
+            )
+            if not fx:
+                raise HTTPException(400, f"Fixture {body.fixture_id!r} not found")
+            kickoff = fx["kickoff_at"]
+            if kickoff.tzinfo is None:
+                kickoff = kickoff.replace(tzinfo=UTC)
+            elapsed = (datetime.now(UTC) - kickoff).total_seconds() / 60
+            match_minute = max(0, min(130, int(elapsed))) if fx["status"] == "LIVE" else (
+                0 if fx["status"] == "SCHEDULED" else 90
+            )
+
     # Moderate before write — if held, we still record but with HELD status.
     mod = await moderate_moan(body.text)
     new_status = "HELD" if mod.should_hold else "PUBLISHED"
@@ -274,12 +294,14 @@ async def create_moan(
         new_id = await conn.fetchval(
             """
             INSERT INTO moans (user_id, team_id, target_user_id, parent_moan_id, kind, status,
-              text, rage_level, moderation_score, moderation_reason)
-            VALUES ($1, $2, $3, $4, $5, $6::moan_status, $7, $8, $9, $10)
+              text, rage_level, moderation_score, moderation_reason,
+              fixture_id, match_minute, side)
+            VALUES ($1, $2, $3, $4, $5, $6::moan_status, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id::text
             """,
             user.id, team_id, target_id, body.parent_moan_id, body.kind, new_status,
             body.text, body.rage_level, mod.score, mod.reason,
+            body.fixture_id, match_minute, body.side,
         )
         # Tags
         slugs = extract_tags(body.text)
