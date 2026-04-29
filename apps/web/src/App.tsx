@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Ticker, Wordmark } from './components/Brand';
 import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from './components/Live';
-import { Battle, Leaderboards, LiveThread, Rivalry } from './components/Screens';
+import { BattlesPage, LiveMoanAlong } from './components/LivePages';
+import { Leaderboards, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
 
 type Palette = { red: string; orange: string; yellow: string; blue: string };
@@ -16,8 +17,8 @@ type Route = 'feed' | 'live' | 'battle' | 'rivalry' | 'leaderboard' | 'profile' 
 
 const NAV_ITEMS: { id: Route; label: string; icon: string; section: 'main' | 'discover' | 'you'; badge?: string; demo?: boolean }[] = [
   { id: 'feed',        label: 'THE FEED',         icon: 'F', section: 'main' },
-  { id: 'live',        label: 'LIVE MOAN-ALONG',  icon: '●', section: 'main', badge: 'DEMO', demo: true },
-  { id: 'battle',      label: 'ROAST BATTLE',     icon: 'X', section: 'main', badge: 'DEMO', demo: true },
+  { id: 'live',        label: 'LIVE MOAN-ALONG',  icon: '●', section: 'main', badge: 'LIVE' },
+  { id: 'battle',      label: 'ROAST BATTLE',     icon: 'X', section: 'main' },
   { id: 'teams',       label: 'ALL CLUBS',        icon: '⚑', section: 'discover' },
   { id: 'rivalry',     label: 'RIVALRIES',        icon: 'V', section: 'discover', demo: true },
   { id: 'leaderboard', label: 'LEADERBOARDS',     icon: '#', section: 'discover', demo: true },
@@ -266,8 +267,8 @@ export default function App() {
         )}
         {!activeMoan && route === 'teams' && <TeamsPage />}
         {!activeMoan && route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
-        {!activeMoan && route === 'live' && <DemoBanner><LiveThread /></DemoBanner>}
-        {!activeMoan && route === 'battle' && <DemoBanner><Battle /></DemoBanner>}
+        {!activeMoan && route === 'live' && <LiveMoanAlong />}
+        {!activeMoan && route === 'battle' && <BattlesPage />}
         {!activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
         {!activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
       </main>

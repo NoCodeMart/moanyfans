@@ -1111,3 +1111,10 @@ body[data-dark="1"] {
   letter-spacing: 0.08em; opacity: 0.7;
 }
 .live-now { color: var(--red); font-weight: 700; opacity: 1; }
+
+/* live pulse for "● LIVE NOW" headers */
+@keyframes pulseFlash {
+  0%, 70% { opacity: 1; }
+  85% { opacity: 0.4; }
+  100% { opacity: 1; }
+}

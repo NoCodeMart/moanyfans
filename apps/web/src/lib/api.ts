@@ -73,6 +73,72 @@ export type TrendingTag = {
   sport: string | null;
 };
 
+export type FixtureStatus = 'SCHEDULED' | 'LIVE' | 'FT';
+
+export type FixtureTeam = {
+  id: string;
+  slug: string;
+  name: string;
+  short_name: string;
+  primary_color: string;
+  secondary_color: string;
+};
+
+export type Fixture = {
+  id: string;
+  competition: string;
+  home_team: FixtureTeam;
+  away_team: FixtureTeam;
+  kickoff_at: string;
+  status: FixtureStatus;
+  home_score: number | null;
+  away_score: number | null;
+  minute_estimate: number | null;
+};
+
+export type LiveEvent = {
+  id: string;
+  fixture_id: string;
+  minute: number;
+  text: string;
+  source: string;
+  created_at: string;
+};
+
+export type BattleStatus = 'PENDING' | 'ACTIVE' | 'CLOSED' | 'EXPIRED';
+
+export type BattleUser = {
+  id: string;
+  handle: string;
+  avatar_seed: string | null;
+  team_id: string | null;
+  team_slug: string | null;
+  team_name: string | null;
+};
+
+export type Battle = {
+  id: string;
+  challenger: BattleUser;
+  opponent: BattleUser;
+  topic: string | null;
+  status: BattleStatus;
+  challenger_votes: number;
+  opponent_votes: number;
+  winner_id: string | null;
+  expires_at: string;
+  created_at: string;
+  your_vote: string | null;
+  message_count: number;
+};
+
+export type BattleMsg = {
+  id: string;
+  user_id: string;
+  handle: string;
+  text: string;
+  created_at: string;
+};
+
 export type CreateMoan = {
   kind: MoanKind;
   text: string;
@@ -147,4 +213,33 @@ export const api = {
 
   trendingTags: (window: '24h' | '7d' | '30d' | 'all' = '24h', limit = 20) =>
     request<TrendingTag[]>(`/tags/trending?window=${window}&limit=${limit}`),
+
+  listFixtures: (params: { status?: FixtureStatus; team?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v != null) q.set(k, String(v));
+    return request<Fixture[]>(`/fixtures${q.toString() ? `?${q}` : ''}`);
+  },
+  getFixture: (id: string) => request<Fixture>(`/fixtures/${id}`),
+  listFixtureEvents: (id: string) => request<LiveEvent[]>(`/fixtures/${id}/events`),
+  fixtureStreamUrl: (id: string) => `${API_URL}/fixtures/${id}/stream`,
+
+  listBattles: (status?: BattleStatus) =>
+    request<Battle[]>(`/battles${status ? `?status=${status}` : ''}`),
+  getBattle: (id: string) => request<Battle>(`/battles/${id}`),
+  listBattleMessages: (id: string) => request<BattleMsg[]>(`/battles/${id}/messages`),
+  createBattle: (opponent_handle: string, topic?: string | null) =>
+    request<Battle>('/battles', {
+      method: 'POST',
+      body: JSON.stringify({ opponent_handle, topic }),
+    }),
+  postBattleMessage: (id: string, text: string) =>
+    request<BattleMsg>(`/battles/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  voteBattle: (id: string, vote_for_user_id: string) =>
+    request<Battle>(`/battles/${id}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ vote_for_user_id }),
+    }),
 };
