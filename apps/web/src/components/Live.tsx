@@ -397,7 +397,7 @@ export function MoanDetail({ moanId, onBack }: { moanId: string; onBack: () => v
 
 // ── Feed ────────────────────────────────────────────────────────────────────
 
-type FeedFilter = 'ALL' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
+type FeedFilter = 'ALL' | 'FOLLOWING' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
@@ -411,9 +411,11 @@ export function Feed({
   const isKindFilter = ['MOAN', 'ROAST', 'COPE', 'BANTER'].includes(upperFilter);
   const isSportFilter = (SPORTS_AVAILABLE as readonly string[]).includes(filter);
 
+  const isFollowingFilter = upperFilter === 'FOLLOWING';
   const { data: moans, isLoading, isError, error } = useFeed({
     kind: isKindFilter ? (upperFilter as 'MOAN' | 'ROAST' | 'COPE' | 'BANTER') : undefined,
     sport: isSportFilter ? filter : undefined,
+    following: isFollowingFilter || undefined,
   });
 
   return (
