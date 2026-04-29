@@ -4,3 +4,8 @@ dist
 .gitignore
 .DS_Store
 README.md
+SPEC.md
+**/node_modules
+**/dist
+**/__pycache__
+**/.venv
