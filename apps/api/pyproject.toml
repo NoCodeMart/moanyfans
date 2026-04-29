@@ -13,6 +13,7 @@ dependencies = [
   "redis>=5.2",
   "anthropic>=0.40",
   "structlog>=24.4",
+  "pyjwt[crypto]>=2.10",
 ]
 
 [tool.ruff]

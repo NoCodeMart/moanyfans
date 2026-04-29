@@ -2,7 +2,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY apps/web/package*.json ./
 RUN npm ci
-COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/index.html ./
+COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/index.html apps/web/.env.production ./
 COPY apps/web/src ./src
 RUN npm run build
 

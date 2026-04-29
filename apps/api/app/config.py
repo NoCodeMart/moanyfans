@@ -18,6 +18,16 @@ class Settings(BaseSettings):
             "http://localhost:5173",
         ]
     )
+
+    # Stack Auth — only used when auth_enabled=True
+    auth_enabled: bool = Field(default=False)
+    stack_project_id: str | None = None
+    stack_secret_server_key: str | None = None
+    stack_jwks_url: str | None = None  # https://api.stack-auth.com/api/v1/projects/{id}/.well-known/jwks.json
+
+    # Dev/test user used when auth_enabled=False
+    guest_handle: str = Field(default="GUEST_TESTER")
+
     anthropic_api_key: str | None = None
     log_level: str = "INFO"
 

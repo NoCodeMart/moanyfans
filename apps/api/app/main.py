@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .db import lifespan
-from .routers import health, teams
+from .routers import health, me, teams
 
 structlog.configure(
     processors=[
@@ -45,6 +45,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 app.include_router(health.router)
 app.include_router(teams.router)
+app.include_router(me.router)
 
 
 @app.get("/")

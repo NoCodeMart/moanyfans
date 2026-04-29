@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 COPY apps/api/pyproject.toml ./
 RUN pip install fastapi 'uvicorn[standard]' asyncpg 'pydantic>=2.9' \
-    'pydantic-settings>=2.6' python-dotenv httpx redis 'anthropic>=0.40' structlog
+    'pydantic-settings>=2.6' python-dotenv httpx redis 'anthropic>=0.40' structlog \
+    'pyjwt[crypto]>=2.10'
 
 COPY apps/api/app ./app
 

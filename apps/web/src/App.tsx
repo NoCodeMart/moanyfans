@@ -4,6 +4,7 @@ import { Avatar, Ticker, Wordmark } from './components/Brand';
 import {
   Battle, Composer, Feed, Leaderboards, LiveThread, Profile, Rivalry,
 } from './components/Screens';
+import { useCurrentUser } from './lib/auth';
 
 type Palette = { red: string; orange: string; yellow: string; blue: string };
 const PALETTES: Record<string, Palette> = {
@@ -43,6 +44,7 @@ export default function App() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [palette, setPalette] = useState<keyof typeof PALETTES>('neon');
+  const { user, authEnabled, signInUrl } = useCurrentUser();
   const intensity = 10;
   const headline = 'BIN THE LOT';
   const density: 'compact' | 'regular' | 'comfy' = 'compact';
@@ -76,7 +78,14 @@ export default function App() {
             <span style={{ opacity: 0.4 }}>⌘K</span>
           </div>
           <div className="masthead-actions">
-            <button className="masthead-btn alt" onClick={() => setRoute('profile')} type="button">@GAFFER_GAZ</button>
+            {authEnabled && !user ? (
+              <a className="masthead-btn alt" href={signInUrl}>SIGN IN</a>
+            ) : (
+              <button className="masthead-btn alt" onClick={() => setRoute('profile')} type="button">
+                @{user?.handle ?? 'GUEST'}
+                {!authEnabled && <span style={{ opacity: 0.5, marginLeft: 6, fontSize: 10 }}>· DEV</span>}
+              </button>
+            )}
             <button className="masthead-btn" onClick={() => setComposerOpen(true)} type="button">+ MOAN</button>
           </div>
         </div>
