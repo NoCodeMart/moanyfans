@@ -330,20 +330,23 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
             href={mediaUrl(moan.media_path) ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'block', marginTop: 12, border: '2px solid var(--ink)' }}
+            style={{
+              display: 'block', marginTop: 12,
+              border: '2px solid var(--ink)',
+              maxWidth: 540, background: 'var(--ink)',
+              overflow: 'hidden',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <img
               src={mediaUrl(moan.media_path) ?? ''}
-              width={moan.media_w ?? undefined}
-              height={moan.media_h ?? undefined}
               alt=""
               loading="lazy"
               style={{
-                display: 'block', width: '100%', height: 'auto',
-                aspectRatio: moan.media_w && moan.media_h
-                  ? `${moan.media_w} / ${moan.media_h}` : undefined,
-                background: 'var(--paper)',
+                display: 'block',
+                width: '100%', maxHeight: 480,
+                objectFit: 'contain',
+                background: 'var(--ink)',
               }}
             />
           </a>
