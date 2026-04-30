@@ -129,33 +129,36 @@ async def _claude_json(system: str, user: str) -> dict[str, Any] | None:
 async def _pick_target_team(conn: asyncpg.Connection) -> dict[str, Any] | None:
     """Prefer teams in fixtures within the last 36h or the next 36h.
     Falls back to any Premier League / Championship / Scottish Prem team."""
-    row = await conn.fetchrow(
+    hot = await conn.fetchrow(
         """
-        WITH hot AS (
-          SELECT t.id::text AS id, t.name, t.short_name, t.league, f.competition,
-                 f.home_score, f.away_score, f.status::text AS status,
-                 ot.name AS opponent
-            FROM fixtures f
-            JOIN teams t  ON t.id IN (f.home_team_id, f.away_team_id)
-            JOIN teams ot ON ot.id IN (f.home_team_id, f.away_team_id)
-                          AND ot.id != t.id
-           WHERE f.kickoff_at BETWEEN now() - interval '36 hours'
-                                  AND now() + interval '36 hours'
-           ORDER BY random() LIMIT 1
-        )
-        SELECT * FROM hot
-        UNION ALL
+        SELECT t.id::text AS id, t.name, t.short_name, t.league, f.competition,
+               f.home_score, f.away_score, f.status::text AS status,
+               ot.name AS opponent
+          FROM fixtures f
+          JOIN teams t  ON t.id IN (f.home_team_id, f.away_team_id)
+          JOIN teams ot ON ot.id IN (f.home_team_id, f.away_team_id)
+                        AND ot.id != t.id
+         WHERE f.kickoff_at BETWEEN now() - interval '36 hours'
+                                AND now() + interval '36 hours'
+         ORDER BY random()
+         LIMIT 1
+        """,
+    )
+    if hot:
+        return dict(hot)
+    cold = await conn.fetchrow(
+        """
         SELECT t.id::text AS id, t.name, t.short_name, t.league,
                t.league AS competition,
                NULL::int AS home_score, NULL::int AS away_score,
                'IDLE' AS status, NULL::text AS opponent
           FROM teams t
-         WHERE NOT EXISTS (SELECT 1 FROM hot)
-           AND t.league IN ('Premier League', 'Championship', 'Scottish Premiership')
-         ORDER BY random() LIMIT 1
+         WHERE t.league IN ('Premier League', 'Championship', 'Scottish Premiership')
+         ORDER BY random()
+         LIMIT 1
         """,
     )
-    return dict(row) if row else None
+    return dict(cold) if cold else None
 
 
 def _prompt_for(persona: dict[str, Any], team: dict[str, Any]) -> str:
