@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import { useFeed, useSetTeam } from '../lib/hooks';
 import { MoanCard } from './Live';
+import { TeamCrest } from './Crest';
 
 export function TeamFeed({ slug, onClose, onOpenMoan, onOpenUser }: {
   slug: string;
@@ -36,17 +37,20 @@ export function TeamFeed({ slug, onClose, onOpenMoan, onOpenUser }: {
         color: t?.secondary_color ?? 'var(--cream)',
       }}>
         <div className="team-feed-banner-grain" />
-        <div className="team-feed-banner-content">
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
-                          letterSpacing: '0.15em', opacity: 0.85 }}>
-            {(t?.league ?? '').toUpperCase()} · {(t?.city ?? '').toUpperCase()}
-          </div>
-          <h1 className="headline" style={{
-            fontSize: 'clamp(36px, 8vw, 64px)', margin: '6px 0 4px',
-            color: t?.secondary_color ?? 'var(--cream)',
-          }}>
-            {t?.name ?? slug}
-          </h1>
+        <div className="team-feed-banner-content"
+             style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          {t && <TeamCrest team={t} size={88} />}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
+                            letterSpacing: '0.15em', opacity: 0.85 }}>
+              {(t?.league ?? '').toUpperCase()} · {(t?.city ?? '').toUpperCase()}
+            </div>
+            <h1 className="headline" style={{
+              fontSize: 'clamp(36px, 8vw, 64px)', margin: '6px 0 4px',
+              color: t?.secondary_color ?? 'var(--cream)',
+            }}>
+              {t?.name ?? slug}
+            </h1>
           {!isMine && t && user && (
             <button
               type="button"
@@ -74,6 +78,7 @@ export function TeamFeed({ slug, onClose, onOpenMoan, onOpenUser }: {
               CARD-CARRYING SUFFERER
             </span>
           )}
+          </div>
         </div>
       </header>
 

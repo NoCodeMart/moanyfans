@@ -11,6 +11,7 @@ import {
   useCreateMoan, useFeed, useMyMoans, useMyStats, useReact, useSetTeam,
   useTeams, useTrendingTags, useUpdateMe,
 } from '../lib/hooks';
+import { TeamCrest } from './Crest';
 
 // Default handler when a MoanCard is rendered outside the App shell —
 // pushes ?u=HANDLE so the App URL listener can open the profile view.
@@ -42,46 +43,6 @@ function UserAvatar({ user, size = 44, fallbackColor = '#0a0908' }: {
   );
 }
 
-function TeamCrest({ team, size = 48 }: { team?: Team | null; size?: number }) {
-  if (!team) return null;
-  const hash = [...team.id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const shape = hash % 4;
-  const stripes = (hash % 3) + 2;
-  const stripeColors = [team.primary_color, team.secondary_color];
-  const initials = team.name.split(' ').map(w => w[0]).join('').slice(0, 3);
-  const cpId = `cp-${team.id}`;
-  return (
-    <span className="crest" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 48 48" width={size} height={size}>
-        <defs>
-          <clipPath id={cpId}>
-            {shape === 0 && <path d="M4 4 H44 V28 Q44 44 24 46 Q4 44 4 28 Z" />}
-            {shape === 1 && <circle cx="24" cy="24" r="22" />}
-            {shape === 2 && <path d="M24 2 L46 24 L24 46 L2 24 Z" />}
-            {shape === 3 && <path d="M24 2 L44 14 L44 34 L24 46 L4 34 L4 14 Z" />}
-          </clipPath>
-        </defs>
-        <g clipPath={`url(#${cpId})`}>
-          <rect width="48" height="48" fill={stripeColors[0]} />
-          {Array.from({ length: stripes }).map((_, i) => (
-            <rect key={i}
-              x={(i * 48) / stripes} y="0" width={48 / stripes / 2} height="48"
-              fill={stripeColors[1]} opacity="0.85" />
-          ))}
-          <text x="24" y="30" textAnchor="middle"
-            fontFamily="var(--font-display)" fontSize="18" fontWeight="900"
-            fill={stripeColors[1]} stroke={stripeColors[0]} strokeWidth="0.5">{initials}</text>
-        </g>
-        <g fill="none" stroke="var(--ink)" strokeWidth="1.5">
-          {shape === 0 && <path d="M4 4 H44 V28 Q44 44 24 46 Q4 44 4 28 Z" />}
-          {shape === 1 && <circle cx="24" cy="24" r="22" />}
-          {shape === 2 && <path d="M24 2 L46 24 L24 46 L2 24 Z" />}
-          {shape === 3 && <path d="M24 2 L44 14 L44 34 L24 46 L4 34 L4 14 Z" />}
-        </g>
-      </svg>
-    </span>
-  );
-}
 
 // ── Time formatting ─────────────────────────────────────────────────────────
 
@@ -330,7 +291,9 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
                     background: moan.team.primary_color,
                     color: moan.team.secondary_color,
                     border: 0, cursor: 'pointer', font: 'inherit',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
                   }}>
+                  <TeamCrest team={moan.team} size={20} withInitials={false} />
                   {moan.team.name}
                 </button>
               )}
@@ -711,8 +674,7 @@ function TeamPicker({
       >
         {selected ? (
           <>
-            <span className="composer-team-pill-dot"
-                   style={{ background: selected.primary_color }} />
+            <TeamCrest team={selected} size={20} withInitials={false} />
             Posting about <b>{selected.short_name}</b>
             <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 4 }}>· change</span>
           </>
@@ -760,7 +722,7 @@ function TeamPicker({
             key={t.id} type="button" className="composer-team-row"
             onClick={() => { onPick(t.slug); setOpen(false); setQuery(''); }}
           >
-            <span className="composer-team-pill-dot" style={{ background: t.primary_color }} />
+            <TeamCrest team={t} size={26} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 15 }}>{t.name}</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
@@ -1000,7 +962,7 @@ export function MeProfile({ onPickTeam }: { onPickTeam: () => void }): ReactNode
                   font: 'inherit', color: 'inherit', letterSpacing: 'inherit',
                 }}
               >
-                <span className="profile-team-dot" style={{ background: myTeam.primary_color }} />
+                <TeamCrest team={myTeam} size={22} withInitials={false} />
                 {myTeam.name}
               </button>
             ) : (<span style={{ opacity: 0.6 }}>No team yet</span>)}
