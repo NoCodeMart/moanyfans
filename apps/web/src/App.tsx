@@ -196,6 +196,25 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Wheel events anywhere on the page (including the side rails) scroll
+  // the main column. X-style — you don't have to aim at the feed.
+  // Skipped on touch / small screens where native page scroll is in charge.
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 760px)').matches) return;
+    const onWheel = (e: WheelEvent) => {
+      const main = document.querySelector('.main') as HTMLElement | null;
+      if (!main) return;
+      const target = e.target as HTMLElement | null;
+      // Let the rails handle their own scroll if they actually overflow,
+      // and let any nested scrollable area (modals, popovers) do its thing.
+      if (target && target.closest('.main, [data-scroll-self], dialog, .modal')) return;
+      main.scrollBy({ top: e.deltaY, behavior: 'auto' });
+      e.preventDefault();
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, []);
+
   const renderTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
   if (showLanding) {

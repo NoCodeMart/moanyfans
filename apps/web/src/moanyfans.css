@@ -230,7 +230,14 @@ body[data-dark="1"] {
   height: 100%;
   overflow-y: auto;
   border-right: 1px solid var(--rule, #c7bfa9);
+  scrollbar-width: none; /* Firefox */
 }
+.main::-webkit-scrollbar { width: 0; height: 0; display: none; } /* Chrome/Safari */
+
+/* Side rails also hide their scrollbar — they only scroll if pinned content
+   overflows, which is rare. Keep scroll capability for very tall menus. */
+.nav, .aside { scrollbar-width: none; }
+.nav::-webkit-scrollbar, .aside::-webkit-scrollbar { width: 0; display: none; }
 
 /* ═══ ASIDE (right) ═══ */
 .aside {
