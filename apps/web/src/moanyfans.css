@@ -1810,8 +1810,26 @@ body[data-dark="1"] {
 }
 .moan-reply-btn:hover .moan-reply-count { background: var(--red); }
 .moan-reply-open {
-  background: transparent; border: 0; cursor: pointer;
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
-  opacity: 0.55; padding: 6px 8px; color: var(--ink);
+  background: var(--green); border: 2px solid var(--ink); cursor: pointer;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: 0.08em;
+  font-weight: 700;
+  padding: 6px 14px; color: var(--cream);
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
-.moan-reply-open:hover { opacity: 1; color: var(--red); }
+.moan-reply-open:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.moan-reply-open:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.moan-delete-btn {
+  background: transparent; border: 0; cursor: pointer;
+  padding: 6px 8px; color: var(--ink); opacity: 0.45;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: auto;
+}
+.moan-delete-btn:hover { opacity: 1; color: var(--red); }
+.moan-delete-btn:disabled { cursor: wait; opacity: 0.3; }
