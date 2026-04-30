@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     web_public_base: str = Field(default="https://moanyfans.77-68-52-69.sslip.io")
     api_public_base: str = Field(default="https://api.moanyfans.77-68-52-69.sslip.io")
 
+    # Web Push (VAPID). Public key is served to the browser; private key signs
+    # the JWT in the Authorization header on each push request. Both base64url,
+    # generated once via py-vapid and injected as Coolify env vars.
+    vapid_private_key_b64: str | None = None
+    vapid_public_key_b64: str | None = None
+    vapid_subject: str = Field(default="mailto:waynejackson2074@gmail.com")
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -12,6 +12,7 @@ import {
   useTeams, useTrendingTags, useUpdateMe,
 } from '../lib/hooks';
 import { TeamCrest } from './Crest';
+import { currentSubscription, pushSupported, subscribePush, unsubscribePush } from '../lib/push';
 
 // Default handler when a MoanCard is rendered outside the App shell —
 // pushes ?u=HANDLE so the App URL listener can open the profile view.
@@ -549,6 +550,58 @@ export function Composer({ open, onClose, replyTo }: {
         </div>
         <ComposerForm variant="modal" autoFocus onPosted={onClose} replyTo={replyTo ?? null} />
       </div>
+    </div>
+  );
+}
+
+function PushToggle() {
+  const supported = pushSupported();
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supported) return;
+    currentSubscription().then(s => setEnabled(!!s)).catch(() => {});
+  }, [supported]);
+
+  if (!supported) return null;
+
+  const toggle = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (enabled) {
+        await unsubscribePush();
+        setEnabled(false);
+      } else {
+        await subscribePush();
+        setEnabled(true);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ margin: '12px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <button type="button" onClick={toggle} disabled={busy}
+        style={{
+          fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: '0.05em',
+          padding: '8px 14px',
+          background: enabled ? 'var(--ink)' : 'var(--paper)',
+          color: enabled ? 'var(--cream)' : 'var(--ink)',
+          border: '2px solid var(--ink)', cursor: busy ? 'wait' : 'pointer',
+        }}>
+        {busy ? '…' : enabled ? '🔔 PUSH ON · TAP TO MUTE' : '🔕 ENABLE PUSH NOTIFICATIONS'}
+      </button>
+      {error && (
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--red)' }}>
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -1121,6 +1174,9 @@ export function MeProfile({ onPickTeam }: { onPickTeam: () => void }): ReactNode
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.5,
                         margin: '8px 0' }}>AUTH DISABLED · ACTING AS GUEST</div>
       )}
+
+      <PushToggle />
+
 
       {/* Recent moans */}
       <div className="feed-divider"><span>━━━ YOUR RECENT MOANS ━━━</span></div>

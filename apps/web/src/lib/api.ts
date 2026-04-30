@@ -307,6 +307,15 @@ export const api = {
   listNotifications: (limit = 30) =>
     request<Notification[]>(`/notifications?limit=${limit}`),
   unreadCount: () => request<{ unread: number }>(`/notifications/unread-count`),
+  vapidKey: () => request<{ public_key: string }>('/push/vapid-key'),
+  subscribePush: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    request<{ status: string }>('/me/push/subscribe', {
+      method: 'POST', body: JSON.stringify(sub),
+    }),
+  unsubscribePush: (endpoint: string) =>
+    request<{ status: string }>('/me/push/unsubscribe', {
+      method: 'POST', body: JSON.stringify({ endpoint }),
+    }),
   markAllRead: () => request<{ marked: number }>(`/notifications/mark-all-read`,
     { method: 'POST' }),
 

@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 import asyncpg
 import structlog
 
-from . import house_ai
+from . import house_ai, push
 
 log = structlog.get_logger(__name__)
 
@@ -73,6 +73,12 @@ async def run(pool: asyncpg.Pool) -> None:
                     fixtures_started=started,
                     fixtures_finished=finished,
                 )
+
+            # Web push dispatch — flush any unpushed notifications.
+            try:
+                await push.dispatch_pending(pool)
+            except Exception:
+                log.exception("push_dispatch_failed")
 
             # House AI sweep — every ~5 minutes catch any FT fixtures whose
             # hot take didn't fire during live polling (e.g. polling missed FT).
