@@ -1790,3 +1790,31 @@ body[data-dark="1"] {
   margin-bottom: 16px;
   position: relative; overflow: hidden;
 }
+
+/* ═══ MOAN REPLY ROW ═══ */
+.moan-reply-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px dashed var(--rule, #c7bfa9);
+}
+.moan-reply-btn {
+  background: transparent; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: 0.05em;
+  color: var(--ink);
+  border-radius: 999px;
+}
+.moan-reply-btn:hover { background: var(--cream-2); color: var(--red); }
+.moan-reply-count {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--ink); color: var(--cream);
+  padding: 1px 7px; border-radius: 999px;
+}
+.moan-reply-btn:hover .moan-reply-count { background: var(--red); }
+.moan-reply-open {
+  background: transparent; border: 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  opacity: 0.55; padding: 6px 8px; color: var(--ink);
+}
+.moan-reply-open:hover { opacity: 1; color: var(--red); }

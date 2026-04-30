@@ -4,7 +4,7 @@
  * with dummy data until those features ship in v1.1.
  */
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Moan, type ReactionKind, type Team, type UserRef } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import {
@@ -287,11 +287,12 @@ function defaultOpenTag(slug: string) {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag }: {
+export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onReply }: {
   moan: Moan; onOpen?: (id: string) => void;
   onOpenUser?: (handle: string) => void;
   onOpenTeam?: (slug: string) => void;
   onOpenTag?: (slug: string) => void;
+  onReply?: (target: { moanId: string; handle: string }) => void;
 }) {
   const kindColor =
     moan.kind === 'ROAST' ? 'var(--red)' :
@@ -371,10 +372,43 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag }: {
       </div>
 
       <ReactionBar moan={moan} />
+      <div className="moan-reply-row">
+        <button
+          type="button"
+          className="moan-reply-btn"
+          onClick={() => (onReply ?? defaultReply)({ moanId: moan.id, handle: moan.user.handle })}
+          aria-label="Reply to this moan"
+        >
+          <ReplyIcon /> REPLY
+          {moan.reply_count > 0 && (
+            <span className="moan-reply-count">{moan.reply_count.toLocaleString()}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          className="moan-reply-open"
+          onClick={() => (onOpen ? onOpen(moan.id) : window.location.assign(`/m/${moan.id}`))}
+        >
+          {moan.reply_count > 0 ? 'OPEN THREAD →' : 'OPEN'}
+        </button>
+      </div>
       <ShareBar moan={moan} />
     </article>
   );
 }
+
+function defaultReply(target: { moanId: string; handle: string }) {
+  // Falls back to opening the moan permalink so the reply composer can be shown there.
+  window.location.assign(`/m/${target.moanId}`);
+}
+
+const ReplyIcon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="9 17 4 12 9 7"/>
+    <path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+  </svg>
+);
 
 // ── Composer Inline (X-style "What's happening?" at top of feed) ───────────
 
@@ -388,7 +422,14 @@ export function ComposerInline() {
 
 // ── Single moan permalink view ──────────────────────────────────────────────
 
-export function MoanDetail({ moanId, onBack }: { moanId: string; onBack: () => void }) {
+export function MoanDetail({ moanId, onBack, onReply, onOpenUser, onOpenTeam, onOpenTag }: {
+  moanId: string;
+  onBack: () => void;
+  onReply?: (target: { moanId: string; handle: string }) => void;
+  onOpenUser?: (handle: string) => void;
+  onOpenTeam?: (slug: string) => void;
+  onOpenTag?: (slug: string) => void;
+}) {
   const { data: moan, isLoading, isError } = useQuery({
     queryKey: ['moan', moanId],
     queryFn: () => api.getMoan(moanId),
@@ -408,11 +449,17 @@ export function MoanDetail({ moanId, onBack }: { moanId: string; onBack: () => v
         }}>← BACK TO FEED</button>
       {isLoading && <div style={{ fontFamily: 'var(--font-mono)' }}>LOADING…</div>}
       {isError && <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>MOAN NOT FOUND</div>}
-      {moan && <MoanCard moan={moan} />}
+      {moan && (
+        <MoanCard moan={moan} onReply={onReply}
+                   onOpenUser={onOpenUser} onOpenTeam={onOpenTeam} onOpenTag={onOpenTag} />
+      )}
       {replies.length > 0 && (
         <>
           <div className="feed-divider"><span>━━━ REPLIES ({replies.length}) ━━━</span></div>
-          {replies.map(r => <MoanCard key={r.id} moan={r} />)}
+          {replies.map(r => (
+            <MoanCard key={r.id} moan={r} onReply={onReply}
+                       onOpenUser={onOpenUser} onOpenTeam={onOpenTeam} onOpenTag={onOpenTag} />
+          ))}
         </>
       )}
     </div>
@@ -425,13 +472,14 @@ type FeedFilter = 'ALL' | 'FOLLOWING' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
-  filter, onOpenMoan, onOpenUser, onOpenTeam, onOpenTag,
+  filter, onOpenMoan, onOpenUser, onOpenTeam, onOpenTag, onReply,
 }: {
   filter: string;
   onOpenMoan?: (id: string) => void;
   onOpenUser?: (handle: string) => void;
   onOpenTeam?: (slug: string) => void;
   onOpenTag?: (slug: string) => void;
+  onReply?: (target: { moanId: string; handle: string }) => void;
 }) {
   const upperFilter = filter.toUpperCase() as FeedFilter;
   const isKindFilter = ['MOAN', 'ROAST', 'COPE', 'BANTER'].includes(upperFilter);
@@ -475,7 +523,7 @@ export function Feed({
           NO MOANS HERE YET. BE THE FIRST TO MOAN.
         </div>
       )}
-      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} onOpenUser={onOpenUser} onOpenTeam={onOpenTeam} onOpenTag={onOpenTag} />)}
+      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} onOpenUser={onOpenUser} onOpenTeam={onOpenTeam} onOpenTag={onOpenTag} onReply={onReply} />)}
 
       {moans && moans.length > 0 && (
         <div className="feed-end">
@@ -497,7 +545,10 @@ const KINDS: { key: 'MOAN' | 'ROAST' | 'COPE' | 'BANTER'; placeholder: string }[
   { key: 'BANTER', placeholder: "DROP THE BANTER. MAKE THEM LAUGH. MAKE THEM CRY." },
 ];
 
-export function Composer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Composer({ open, onClose, replyTo }: {
+  open: boolean; onClose: () => void;
+  replyTo?: { moanId: string; handle: string } | null;
+}) {
   if (!open) return null;
   return (
     <div className="composer-scrim" onClick={onClose}>
@@ -507,20 +558,23 @@ export function Composer({ open, onClose }: { open: boolean; onClose: () => void
           <button className="composer-close" onClick={onClose} type="button"
                    aria-label="Close composer">✕</button>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
-                          letterSpacing: '0.1em', opacity: 0.6 }}>NEW MOAN</span>
+                          letterSpacing: '0.1em', opacity: 0.6 }}>
+            {replyTo ? `REPLYING TO @${replyTo.handle}` : 'NEW MOAN'}
+          </span>
         </div>
-        <ComposerForm variant="modal" autoFocus onPosted={onClose} />
+        <ComposerForm variant="modal" autoFocus onPosted={onClose} replyTo={replyTo ?? null} />
       </div>
     </div>
   );
 }
 
 function ComposerForm({
-  variant, autoFocus, onPosted,
+  variant, autoFocus, onPosted, replyTo,
 }: {
   variant: 'inline' | 'modal';
   autoFocus?: boolean;
   onPosted?: () => void;
+  replyTo?: { moanId: string; handle: string } | null;
 }) {
   const { user } = useCurrentUser();
   const { data: teams = [] } = useTeams();
@@ -537,10 +591,13 @@ function ComposerForm({
 
   const max = 280;
   const remaining = max - text.length;
-  const placeholder = variant === 'inline' && !expanded
-    ? `What's ruining your day${user ? `, @${user.handle}` : ''}?`
-    : (KINDS.find(k => k.key === kind)?.placeholder ?? '');
+  const placeholder = replyTo
+    ? `Reply to @${replyTo.handle}…`
+    : (variant === 'inline' && !expanded
+      ? `What's ruining your day${user ? `, @${user.handle}` : ''}?`
+      : (KINDS.find(k => k.key === kind)?.placeholder ?? ''));
   const selectedTeam = teamSlug ? teams.find(t => t.slug === teamSlug) ?? null : null;
+  const qc = useQueryClient();
 
   const submit = async () => {
     setError(null);
@@ -548,7 +605,12 @@ function ComposerForm({
       const created = await create.mutateAsync({
         kind, text,
         team_slug: teamSlug || undefined,
+        parent_moan_id: replyTo?.moanId,
       });
+      if (replyTo) {
+        qc.invalidateQueries({ queryKey: ['moan', replyTo.moanId, 'replies'] });
+        qc.invalidateQueries({ queryKey: ['moan', replyTo.moanId] });
+      }
       if (created.status === 'HELD') {
         setError('Moan held for review. It will publish if approved.');
       } else {

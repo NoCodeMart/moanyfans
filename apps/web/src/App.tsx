@@ -72,6 +72,11 @@ function readTagSlugFromUrl(): string | null {
 export default function App() {
   const [route, setRoute] = useState<Route>('feed');
   const [composerOpen, setComposerOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ moanId: string; handle: string } | null>(null);
+  const openReply = (target: { moanId: string; handle: string }) => {
+    setReplyTo(target);
+    setComposerOpen(true);
+  };
   const [filter, setFilter] = useState('ALL');
   const [palette, setPalette] = useState<keyof typeof PALETTES>('neon');
   const [activeMoan, setActiveMoan] = useState<string | null>(() => readMoanIdFromUrl());
@@ -370,7 +375,12 @@ export default function App() {
         )}
         {!activeTeam && !activeUser && activeMoan && (
           <div style={{ paddingTop: 16 }}>
-            <MoanDetail moanId={activeMoan} onBack={() => setActiveMoan(null)} />
+            <MoanDetail moanId={activeMoan}
+                          onBack={() => setActiveMoan(null)}
+                          onReply={openReply}
+                          onOpenUser={setActiveUser}
+                          onOpenTeam={setActiveTeam}
+                          onOpenTag={setActiveTag} />
           </div>
         )}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'feed' && (
@@ -416,7 +426,8 @@ export default function App() {
                   onOpenMoan={setActiveMoan}
                   onOpenUser={setActiveUser}
                   onOpenTeam={setActiveTeam}
-                  onOpenTag={setActiveTag} />
+                  onOpenTag={setActiveTag}
+                  onReply={openReply} />
           </>
         )}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'teams' && (
@@ -454,7 +465,8 @@ export default function App() {
         </div>
       </aside>
 
-      <Composer open={composerOpen} onClose={() => setComposerOpen(false)} />
+      <Composer open={composerOpen} replyTo={replyTo}
+                 onClose={() => { setComposerOpen(false); setReplyTo(null); }} />
       <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
       {onboardingOpen && <OnboardingWizard onClose={() => setOnboardingOpen(false)} />}
       {searchOpen && (
