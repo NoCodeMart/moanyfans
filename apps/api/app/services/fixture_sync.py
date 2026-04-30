@@ -257,18 +257,38 @@ async def _apply_live_update(
             f"KICK OFF — {fixture_row['home_short']} vs {fixture_row['away_short']}. "
             f"Game on. Moan loud, moan often.")
         posted += 1
+    from . import house_ai
+    home_id = fixture_row["home_id"]
+    away_id = fixture_row["away_id"]
+    running_home, running_away = prev_home, prev_away
     for _ in range(max(0, new_home - prev_home)):
+        running_home += 1
         await _post_event(conn, fid, minute,
-            f"GOAL — {fixture_row['home_short']} ({new_home}-{new_away}). "
+            f"GOAL — {fixture_row['home_short']} ({running_home}-{running_away}). "
             f"{fixture_row['home_short']} fans on their feet, "
             f"{fixture_row['away_short']} fans heading to the bar.")
         posted += 1
+        try:
+            await house_ai.goal_take_for_fixture(
+                conn, fid, str(home_id), str(away_id), minute,
+                running_home, running_away, "HOME",
+            )
+        except Exception:
+            log.exception("goal_take_failed", fixture_id=fid, minute=minute)
     for _ in range(max(0, new_away - prev_away)):
+        running_away += 1
         await _post_event(conn, fid, minute,
-            f"GOAL — {fixture_row['away_short']} ({new_home}-{new_away}). "
+            f"GOAL — {fixture_row['away_short']} ({running_home}-{running_away}). "
             f"{fixture_row['away_short']} fans on their feet, "
             f"{fixture_row['home_short']} fans crying into their pies.")
         posted += 1
+        try:
+            await house_ai.goal_take_for_fixture(
+                conn, fid, str(away_id), str(home_id), minute,
+                running_home, running_away, "AWAY",
+            )
+        except Exception:
+            log.exception("goal_take_failed", fixture_id=fid, minute=minute)
     became_ft = prev_status == "LIVE" and new_status == "FT"
     if became_ft:
         verdict = "draw" if new_home == new_away else (

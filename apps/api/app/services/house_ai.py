@@ -88,6 +88,10 @@ async def _claude_json(system: str, user: str) -> dict | None:
 async def _post_moan(
     conn: asyncpg.Connection, user_handle: str, team_id: str | None,
     text: str, kind: str,
+    *,
+    fixture_id: str | None = None,
+    match_minute: int | None = None,
+    side: str | None = None,
 ) -> str | None:
     user = await conn.fetchrow(
         "SELECT id::text AS id FROM users WHERE handle = $1", user_handle,
@@ -96,11 +100,13 @@ async def _post_moan(
         return None
     row = await conn.fetchrow(
         """
-        INSERT INTO moans (user_id, team_id, kind, status, text, rage_level)
-        VALUES ($1, $2, $3, 'PUBLISHED', $4, 5)
+        INSERT INTO moans (user_id, team_id, kind, status, text, rage_level,
+                           fixture_id, match_minute, side)
+        VALUES ($1, $2, $3, 'PUBLISHED', $4, 5, $5, $6, $7)
         RETURNING id::text AS id
         """,
         user["id"], team_id, kind, text,
+        fixture_id, match_minute, side,
     )
     moan_id = row["id"] if row else None
     if moan_id:
@@ -123,6 +129,86 @@ async def _post_moan(
                     moan_id, tag["id"],
                 )
     return moan_id
+
+
+_GOAL_TAKE_SYSTEM = """You are HOT_TAKE_HARRY, a house AI account on Moanyfans (UK football \
+moaning platform). A goal has just gone in. Drop a punchy in-match take from the perspective \
+of a pub mate watching live. Voice: cocky, short, opinionated, British, mildly chaotic.
+
+Return JSON ONLY: {"text": "<≤220 chars including hashtags>", "kind": "ROAST|MOAN|BANTER"}
+
+Rules:
+- Single sentence. No essays. No emoji.
+- Side with whichever fan base is suffering more — if it's a smash-and-grab equaliser, roast \
+the team that conceded; if it's a thrashing, pile on.
+- One hashtag max, ending the post.
+- No slurs, no targeting individuals beyond surnames in the public record.
+- British English."""
+
+
+async def goal_take_for_fixture(
+    conn: asyncpg.Connection,
+    fixture_id: str,
+    scoring_team_id: str,
+    conceding_team_id: str,
+    minute: int,
+    home_score: int,
+    away_score: int,
+    scoring_side: str,  # 'HOME' | 'AWAY'
+) -> bool:
+    """Post HOT_TAKE_HARRY's reaction to a single goal. Idempotent per goal event."""
+    ref = f"{fixture_id}:{minute}:{home_score}-{away_score}"
+    if await conn.fetchval(
+        "SELECT 1 FROM house_ai_log WHERE kind='goal_take' AND ref=$1", ref,
+    ):
+        return False
+
+    row = await conn.fetchrow(
+        """
+        SELECT f.competition,
+               ht.short_name AS home_short, at.short_name AS away_short,
+               st.name AS scorer_name, st.short_name AS scorer_short,
+               ct.name AS conceder_name, ct.short_name AS conceder_short
+          FROM fixtures f
+          JOIN teams ht ON ht.id = f.home_team_id
+          JOIN teams at ON at.id = f.away_team_id
+          JOIN teams st ON st.id = $2
+          JOIN teams ct ON ct.id = $3
+         WHERE f.id = $1
+        """,
+        fixture_id, scoring_team_id, conceding_team_id,
+    )
+    if not row:
+        return False
+
+    prompt = (
+        f"{row['scorer_name']} just scored against {row['conceder_name']} on {minute}'. "
+        f"Score: {row['home_short']} {home_score}-{away_score} {row['away_short']} "
+        f"({row['competition']}). Drop the take."
+    )
+    data = await _claude_json(_GOAL_TAKE_SYSTEM, prompt)
+    if not data:
+        return False
+    text = str(data.get("text", "")).strip()[:480]
+    kind = str(data.get("kind", "BANTER")).upper()
+    if kind not in {"ROAST", "MOAN", "BANTER"}:
+        kind = "BANTER"
+    if not text:
+        return False
+
+    moan_id = await _post_moan(
+        conn, "HOT_TAKE_HARRY", conceding_team_id, text, kind,
+        fixture_id=fixture_id, match_minute=minute, side=scoring_side,
+    )
+    if not moan_id:
+        return False
+    await conn.execute(
+        "INSERT INTO house_ai_log (kind, ref) VALUES ('goal_take', $1) "
+        "ON CONFLICT DO NOTHING",
+        ref,
+    )
+    log.info("goal_take_posted", fixture_id=fixture_id, minute=minute, moan_id=moan_id)
+    return True
 
 
 async def hot_take_for_fixture(conn: asyncpg.Connection, fixture_id: str) -> bool:
