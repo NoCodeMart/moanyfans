@@ -168,6 +168,7 @@ async def list_feed(
     league: str | None = None,
     user_handle: str | None = Query(default=None, alias="user",
                                      description="Filter by author handle"),
+    tag: str | None = Query(default=None, description="Filter by hashtag slug (no leading #)"),
     mine: bool = Query(default=False, description="Only the signed-in user's moans"),
     following: bool = Query(default=False, description="Only moans from accounts you follow"),
     limit: int = Query(default=50, ge=1, le=100),
@@ -199,6 +200,10 @@ async def list_feed(
     elif user_handle:
         args.append(user_handle.upper())
         sql += f" AND u.handle = ${len(args)}"
+    if tag:
+        args.append(tag.upper().lstrip("#")[:32])
+        sql += (f" AND m.id IN (SELECT mt.moan_id FROM moan_tags mt"
+                f" JOIN tags tg ON tg.id = mt.tag_id WHERE tg.slug = ${len(args)})")
     if following:
         args.append(user.id)
         sql += f" AND m.user_id IN (SELECT followed_id FROM follows WHERE follower_id = ${len(args)})"

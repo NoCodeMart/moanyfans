@@ -1780,3 +1780,13 @@ body[data-dark="1"] {
   background-size: 8px 8px;
 }
 .team-feed-banner-content { position: relative; z-index: 1; }
+
+/* ═══ TAG FEED ═══ */
+.tag-feed { padding-top: 8px; }
+.tag-feed-banner {
+  background: var(--ink); color: var(--cream);
+  border: 3px solid var(--ink);
+  padding: 28px 22px;
+  margin-bottom: 16px;
+  position: relative; overflow: hidden;
+}

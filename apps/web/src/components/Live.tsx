@@ -280,10 +280,18 @@ function defaultOpenTeam(slug: string) {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam }: {
+function defaultOpenTag(slug: string) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('tag', slug.replace(/^#/, '').toUpperCase());
+  window.history.pushState({}, '', u.toString());
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag }: {
   moan: Moan; onOpen?: (id: string) => void;
   onOpenUser?: (handle: string) => void;
   onOpenTeam?: (slug: string) => void;
+  onOpenTag?: (slug: string) => void;
 }) {
   const kindColor =
     moan.kind === 'ROAST' ? 'var(--red)' :
@@ -355,7 +363,8 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam }: {
         {moan.tags.length > 0 && (
           <div className="moan-tags">
             {moan.tags.map(t => (
-              <button key={t} className="tag" type="button">{t}</button>
+              <button key={t} className="tag" type="button"
+                onClick={() => (onOpenTag ?? defaultOpenTag)(t)}>{t}</button>
             ))}
           </div>
         )}
@@ -416,12 +425,13 @@ type FeedFilter = 'ALL' | 'FOLLOWING' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
-  filter, onOpenMoan, onOpenUser, onOpenTeam,
+  filter, onOpenMoan, onOpenUser, onOpenTeam, onOpenTag,
 }: {
   filter: string;
   onOpenMoan?: (id: string) => void;
   onOpenUser?: (handle: string) => void;
   onOpenTeam?: (slug: string) => void;
+  onOpenTag?: (slug: string) => void;
 }) {
   const upperFilter = filter.toUpperCase() as FeedFilter;
   const isKindFilter = ['MOAN', 'ROAST', 'COPE', 'BANTER'].includes(upperFilter);
@@ -465,7 +475,7 @@ export function Feed({
           NO MOANS HERE YET. BE THE FIRST TO MOAN.
         </div>
       )}
-      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} onOpenUser={onOpenUser} onOpenTeam={onOpenTeam} />)}
+      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} onOpenUser={onOpenUser} onOpenTeam={onOpenTeam} onOpenTag={onOpenTag} />)}
 
       {moans && moans.length > 0 && (
         <div className="feed-end">
@@ -724,11 +734,15 @@ export function TrendingRail() {
           }}>NO TRENDING TAGS YET</div>
         )}
         {tags.map(t => (
-          <div key={t.tag} className="trending-row">
+          <button key={t.tag} type="button" className="trending-row"
+            onClick={() => defaultOpenTag(t.tag)}
+            style={{ background: 'transparent', border: 0, cursor: 'pointer',
+                       width: '100%', textAlign: 'left', font: 'inherit',
+                       letterSpacing: 'inherit', color: 'inherit' }}>
             <span className="tag-text">{t.tag}</span>
             <span className="sport">{t.sport ? t.sport.toUpperCase() : '—'}</span>
             <span className="moans">{t.moans.toLocaleString()}</span>
-          </div>
+          </button>
         ))}
       </div>
     </div>

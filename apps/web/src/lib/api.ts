@@ -281,6 +281,8 @@ export const api = {
     request<PublicUser>(`/users/${encodeURIComponent(handle)}/follow`, { method: 'DELETE' }),
   followingFeed: (limit = 50) =>
     request<Moan[]>(`/moans?following=true&limit=${limit}`),
+  tagMoans: (slug: string, limit = 50) =>
+    request<Moan[]>(`/moans?tag=${encodeURIComponent(slug)}&limit=${limit}`),
 
   listNotifications: (limit = 30) =>
     request<Notification[]>(`/notifications?limit=${limit}`),

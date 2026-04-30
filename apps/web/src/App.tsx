@@ -7,6 +7,7 @@ import { LegalLayer, type LegalView } from './components/LegalLayer';
 import { NotificationBell } from './components/Notifications';
 import { OnboardingWizard } from './components/Onboarding';
 import { SearchOverlay } from './components/SearchOverlay';
+import { TagFeed } from './components/TagFeed';
 import { TeamFeed } from './components/TeamFeed';
 import { UserProfileView } from './components/UserProfile';
 import { Leaderboards, Rivalry } from './components/Screens';
@@ -64,6 +65,10 @@ function readTeamSlugFromUrl(): string | null {
   return new URLSearchParams(window.location.search).get('team');
 }
 
+function readTagSlugFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get('tag');
+}
+
 export default function App() {
   const [route, setRoute] = useState<Route>('feed');
   const [composerOpen, setComposerOpen] = useState(false);
@@ -72,6 +77,7 @@ export default function App() {
   const [activeMoan, setActiveMoan] = useState<string | null>(() => readMoanIdFromUrl());
   const [activeUser, setActiveUser] = useState<string | null>(() => readUserHandleFromUrl());
   const [activeTeam, setActiveTeam] = useState<string | null>(() => readTeamSlugFromUrl());
+  const [activeTag, setActiveTag] = useState<string | null>(() => readTagSlugFromUrl());
   const [legalView, setLegalView] = useState<LegalView>(null);
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     if (readMoanIdFromUrl()) return false;
@@ -142,11 +148,26 @@ export default function App() {
     }
   }, [activeTeam]);
 
+  // Sync URL with activeTag
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (activeTag) {
+      if (url.searchParams.get('tag') !== activeTag) {
+        url.searchParams.set('tag', activeTag);
+        window.history.pushState({ tag: activeTag }, '', url.toString());
+      }
+    } else if (url.searchParams.has('tag')) {
+      url.searchParams.delete('tag');
+      window.history.pushState({}, '', url.toString());
+    }
+  }, [activeTag]);
+
   useEffect(() => {
     const onPop = () => {
       setActiveMoan(readMoanIdFromUrl());
       setActiveUser(readUserHandleFromUrl());
       setActiveTeam(readTeamSlugFromUrl());
+      setActiveTag(readTagSlugFromUrl());
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -323,7 +344,16 @@ export default function App() {
       </nav>
 
       <main className="main">
-        {activeTeam && (
+        {activeTag && (
+          <div style={{ paddingTop: 16 }}>
+            <TagFeed slug={activeTag}
+                      onClose={() => setActiveTag(null)}
+                      onOpenMoan={setActiveMoan}
+                      onOpenUser={setActiveUser}
+                      onOpenTeam={setActiveTeam} />
+          </div>
+        )}
+        {!activeTag && activeTeam && (
           <div style={{ paddingTop: 16 }}>
             <TeamFeed slug={activeTeam}
                        onClose={() => setActiveTeam(null)}
@@ -343,7 +373,7 @@ export default function App() {
             <MoanDetail moanId={activeMoan} onBack={() => setActiveMoan(null)} />
           </div>
         )}
-        {!activeTeam && !activeUser && !activeMoan && route === 'feed' && (
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'feed' && (
           <>
             <div style={{
               padding: '24px 0 24px',
@@ -385,17 +415,18 @@ export default function App() {
             <Feed filter={filter}
                   onOpenMoan={setActiveMoan}
                   onOpenUser={setActiveUser}
-                  onOpenTeam={setActiveTeam} />
+                  onOpenTeam={setActiveTeam}
+                  onOpenTag={setActiveTag} />
           </>
         )}
-        {!activeTeam && !activeUser && !activeMoan && route === 'teams' && (
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'teams' && (
           <TeamsPage onPickTeam={(t) => setActiveTeam(t.slug)} />
         )}
-        {!activeTeam && !activeUser && !activeMoan && route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
-        {!activeTeam && !activeUser && !activeMoan && route === 'live' && <LiveMoanAlong />}
-        {!activeTeam && !activeUser && !activeMoan && route === 'battle' && <BattlesPage />}
-        {!activeTeam && !activeUser && !activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
-        {!activeTeam && !activeUser && !activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'profile' && <MeProfile onPickTeam={() => setRoute('teams')} />}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'live' && <LiveMoanAlong />}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'battle' && <BattlesPage />}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
       </main>
 
       <aside className="aside">
