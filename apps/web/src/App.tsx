@@ -4,7 +4,9 @@ import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from '
 import { BattlesPage, BattlesAsideCard, LiveMoanAlong } from './components/LivePages';
 import { Landing } from './components/Landing';
 import { LegalLayer, type LegalView } from './components/LegalLayer';
+import { NotificationBell } from './components/Notifications';
 import { OnboardingWizard } from './components/Onboarding';
+import { SearchOverlay } from './components/SearchOverlay';
 import { UserProfileView } from './components/UserProfile';
 import { Leaderboards, Rivalry } from './components/Screens';
 import { useCurrentUser } from './lib/auth';
@@ -72,6 +74,7 @@ export default function App() {
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const startOnboarding = () => setOnboardingOpen(true);
   const finishOnboarding = () => {
@@ -128,6 +131,18 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // ⌘K / Ctrl+K opens search
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const renderTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
   if (showLanding) {
@@ -158,12 +173,23 @@ export default function App() {
               <span style={{ color: 'var(--red)' }}>● LIVE</span>
             </span>
           </div>
-          <div className="masthead-search">
+          <button
+            type="button"
+            className="masthead-search"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Open search"
+          >
             <span style={{ marginRight: 8, opacity: 0.6 }}>🔎</span>
-            <input placeholder="SEARCH MOANS, ROASTS, FANS, TEAMS, GRIEVANCES…" />
+            <span style={{ flex: 1, textAlign: 'left', opacity: 0.6 }}>
+              SEARCH MOANS, ROASTS, FANS, TEAMS, GRIEVANCES…
+            </span>
             <span style={{ opacity: 0.4 }}>⌘K</span>
-          </div>
+          </button>
           <div className="masthead-actions">
+            <NotificationBell
+              onOpenUser={(h) => setActiveUser(h)}
+              onOpenMoan={(id) => setActiveMoan(id)}
+            />
             {authEnabled && !user ? (
               <a className="masthead-btn alt" href={signInUrl}>SIGN IN</a>
             ) : (
@@ -368,6 +394,14 @@ export default function App() {
       <Composer open={composerOpen} onClose={() => setComposerOpen(false)} />
       <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
       {onboardingOpen && <OnboardingWizard onClose={() => setOnboardingOpen(false)} />}
+      {searchOpen && (
+        <SearchOverlay
+          onClose={() => setSearchOpen(false)}
+          onPickMoan={(id) => { setSearchOpen(false); setActiveMoan(id); }}
+          onPickUser={(h) => { setSearchOpen(false); setActiveUser(h); }}
+          onPickTeam={(slug) => { setSearchOpen(false); setRoute('teams'); window.location.hash = slug; }}
+        />
+      )}
 
       {drawerOpen && (
         <>

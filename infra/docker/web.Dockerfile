@@ -4,6 +4,7 @@ COPY apps/web/package*.json ./
 RUN npm ci
 COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/index.html apps/web/.env.production ./
 COPY apps/web/src ./src
+COPY apps/web/public ./public
 RUN npm run build
 
 FROM nginx:1.27-alpine

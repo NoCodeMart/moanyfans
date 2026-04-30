@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..auth import CurrentUser, get_current_user
+from ..services.ratelimit import limit_user
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -92,6 +93,8 @@ async def follow(
     handle: str, request: Request,
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> PublicUser:
+    # Anti-abuse: max 60 follow toggles / minute per user
+    limit_user(user, action="follow", limit=60, window_s=60)
     pool = request.app.state.pool
     async with pool.acquire() as conn:
         target_id = await conn.fetchval(

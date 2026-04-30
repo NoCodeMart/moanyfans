@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from ..auth import CurrentUser, get_current_user
 from ..services import house_ai
 from ..services.moderation import moderate_moan
+from ..services.ratelimit import limit_user
 from ..services.tags import attach_tags_to_moan, extract_tags, upsert_tags
 
 log = structlog.get_logger(__name__)
@@ -252,6 +253,8 @@ async def create_moan(
     request: Request,
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> MoanOut:
+    # Anti-spam: 30 moans / minute per user
+    limit_user(user, action="create_moan", limit=30, window_s=60)
     pool = request.app.state.pool
 
     async with pool.acquire() as conn:

@@ -55,6 +55,25 @@ export type PublicUser = {
   created_at: string | null;
 };
 
+export type Notification = {
+  id: string;
+  kind: 'followed' | 'reaction' | 'replied' | 'reacted_milestone'
+        | 'battle_challenged' | 'battle_won' | 'battle_lost'
+        | 'match_starting' | 'weekly_digest' | 'roasted';
+  payload: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type SearchHit = {
+  type: 'moan' | 'user' | 'team';
+  id: string;
+  title: string;
+  subtitle: string | null;
+  accent: string | null;
+  payload: Record<string, unknown>;
+};
+
 export type FollowListItem = {
   handle: string;
   avatar_seed: string | null;
@@ -262,6 +281,15 @@ export const api = {
     request<PublicUser>(`/users/${encodeURIComponent(handle)}/follow`, { method: 'DELETE' }),
   followingFeed: (limit = 50) =>
     request<Moan[]>(`/moans?following=true&limit=${limit}`),
+
+  listNotifications: (limit = 30) =>
+    request<Notification[]>(`/notifications?limit=${limit}`),
+  unreadCount: () => request<{ unread: number }>(`/notifications/unread-count`),
+  markAllRead: () => request<{ marked: number }>(`/notifications/mark-all-read`,
+    { method: 'POST' }),
+
+  search: (q: string) =>
+    request<SearchHit[]>(`/search?q=${encodeURIComponent(q)}`),
 
   listTeams: (league?: string) =>
     request<Team[]>(`/teams${league ? `?league=${encodeURIComponent(league)}` : ''}`),

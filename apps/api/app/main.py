@@ -5,7 +5,10 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .db import lifespan
-from .routers import battles, fixtures, health, me, moans, seo, share, tags, teams, users
+from .routers import (
+    battles, fixtures, health, me, moans, notifications, search, seo, share,
+    tags, teams, users,
+)
 
 structlog.configure(
     processors=[
@@ -53,6 +56,19 @@ app.include_router(fixtures.router)
 app.include_router(battles.router)
 app.include_router(seo.router)
 app.include_router(users.router)
+app.include_router(notifications.router)
+app.include_router(search.router)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):  # noqa: ANN001
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Permissions-Policy",
+        "geolocation=(), microphone=(), camera=(), payment=()")
+    return response
 
 
 @app.get("/")
