@@ -9,17 +9,37 @@ Defensive choices:
 - Random UUID filename, sharded by first 2 chars (avoids huge flat dirs)
 - EXIF stripped (privacy + consistency)
 - Output is always webp at q=82, max 1600px on the long edge
+- Claude Haiku vision moderates the processed image before it lands on disk
+  — explicit / illegal content is rejected. Fails open if the API key isn't
+  configured so dev environments still work.
 """
 from __future__ import annotations
 
+import base64
 import io
 import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+import structlog
 from fastapi import HTTPException, UploadFile, status
 from PIL import Image, ImageOps, UnidentifiedImageError
+
+from ..config import get_settings
+
+log = structlog.get_logger(__name__)
+_MODERATION_MODEL = "claude-haiku-4-5-20251001"
+_MODERATION_PROMPT = (
+    "You are an image safety classifier for a UK football banter platform. "
+    "Reply with EXACTLY one word from this list:\n"
+    "  SAFE   — fine for a public sports feed\n"
+    "  NSFW   — explicit nudity, sexual content, gore, or extreme violence\n"
+    "  ILLEGAL — anything depicting minors in a sexualised way, real-world "
+    "violence, terrorism, weapons aimed at people, or other illegal content\n"
+    "When in doubt between SAFE and NSFW, pick NSFW. "
+    "Reply with ONLY the single word — no punctuation, no explanation."
+)
 
 MEDIA_DIR = Path(os.environ.get("MEDIA_DIR", "/app/media"))
 MAX_BYTES = 8 * 1024 * 1024  # 8 MB raw upload cap
@@ -38,6 +58,40 @@ class StoredMedia:
 
 def _ensure_dir() -> None:
     MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+async def _moderate_image(webp_bytes: bytes) -> str:
+    """Returns 'SAFE', 'NSFW', or 'ILLEGAL'. Fails open to 'SAFE' on any error
+    (network, key missing, parse failure) — we'd rather let an upload through
+    than break the whole feature when the moderation provider has a wobble."""
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        return "SAFE"
+    try:
+        from anthropic import AsyncAnthropic  # local import — Pillow path stays light
+        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        b64 = base64.standard_b64encode(webp_bytes).decode("ascii")
+        msg = await client.messages.create(
+            model=_MODERATION_MODEL,
+            max_tokens=10,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": "image/webp", "data": b64,
+                    }},
+                    {"type": "text", "text": _MODERATION_PROMPT},
+                ],
+            }],
+        )
+        verdict = (msg.content[0].text if msg.content else "SAFE").strip().upper()
+        if verdict not in {"SAFE", "NSFW", "ILLEGAL"}:
+            log.warning("image_moderation_unknown_verdict", verdict=verdict[:40])
+            return "SAFE"
+        return verdict
+    except Exception:
+        log.exception("image_moderation_call_failed")
+        return "SAFE"
 
 
 async def store_upload(file: UploadFile) -> StoredMedia:
@@ -81,6 +135,14 @@ async def store_upload(file: UploadFile) -> StoredMedia:
         img.save(out, format="WEBP", quality=82, method=6)
         data = out.getvalue()
         width, height = img.size
+
+    verdict = await _moderate_image(data)
+    if verdict in {"NSFW", "ILLEGAL"}:
+        log.info("image_upload_rejected", verdict=verdict)
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Image rejected — explicit or unsafe content is not allowed.",
+        )
 
     file_id = uuid.uuid4().hex
     shard = file_id[:2]
