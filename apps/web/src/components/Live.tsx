@@ -345,7 +345,8 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
               loading="lazy"
               style={{
                 display: 'block',
-                width: '100%', maxHeight: 380,
+                width: '100%',
+                aspectRatio: '5 / 3',
                 objectFit: 'cover',
                 background: 'var(--ink)',
               }}
