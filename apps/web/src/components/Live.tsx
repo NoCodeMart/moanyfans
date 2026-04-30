@@ -273,8 +273,17 @@ const CheckIcon = () => (
 
 // ── MoanCard ────────────────────────────────────────────────────────────────
 
-export function MoanCard({ moan, onOpen, onOpenUser }: {
-  moan: Moan; onOpen?: (id: string) => void; onOpenUser?: (handle: string) => void;
+function defaultOpenTeam(slug: string) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('team', slug);
+  window.history.pushState({}, '', u.toString());
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam }: {
+  moan: Moan; onOpen?: (id: string) => void;
+  onOpenUser?: (handle: string) => void;
+  onOpenTeam?: (slug: string) => void;
 }) {
   const kindColor =
     moan.kind === 'ROAST' ? 'var(--red)' :
@@ -305,10 +314,16 @@ export function MoanCard({ moan, onOpen, onOpenUser }: {
                          font: 'inherit', color: 'inherit', letterSpacing: 'inherit',
                        }}>@{moan.user.handle}</button>
               {moan.team && (
-                <span className="moan-team-pill"
-                  style={{ background: moan.team.primary_color, color: moan.team.secondary_color }}>
+                <button type="button"
+                  onClick={() => (onOpenTeam ?? defaultOpenTeam)(moan.team!.slug)}
+                  className="moan-team-pill"
+                  style={{
+                    background: moan.team.primary_color,
+                    color: moan.team.secondary_color,
+                    border: 0, cursor: 'pointer', font: 'inherit',
+                  }}>
                   {moan.team.name}
-                </span>
+                </button>
               )}
             </div>
             <div className="moan-sub">
@@ -401,11 +416,12 @@ type FeedFilter = 'ALL' | 'FOLLOWING' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
-  filter, onOpenMoan, onOpenUser,
+  filter, onOpenMoan, onOpenUser, onOpenTeam,
 }: {
   filter: string;
   onOpenMoan?: (id: string) => void;
   onOpenUser?: (handle: string) => void;
+  onOpenTeam?: (slug: string) => void;
 }) {
   const upperFilter = filter.toUpperCase() as FeedFilter;
   const isKindFilter = ['MOAN', 'ROAST', 'COPE', 'BANTER'].includes(upperFilter);
@@ -449,7 +465,7 @@ export function Feed({
           NO MOANS HERE YET. BE THE FIRST TO MOAN.
         </div>
       )}
-      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} onOpenUser={onOpenUser} />)}
+      {moans?.map(m => <MoanCard key={m.id} moan={m} onOpen={onOpenMoan} onOpenUser={onOpenUser} onOpenTeam={onOpenTeam} />)}
 
       {moans && moans.length > 0 && (
         <div className="feed-end">
@@ -901,10 +917,17 @@ export function MeProfile({ onPickTeam }: { onPickTeam: () => void }): ReactNode
           <div className="profile-handle">@{user.handle}</div>
           <div className="profile-meta">
             {myTeam ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <button type="button"
+                onClick={() => defaultOpenTeam(myTeam.slug)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: 'transparent', border: 0, padding: 0, cursor: 'pointer',
+                  font: 'inherit', color: 'inherit', letterSpacing: 'inherit',
+                }}
+              >
                 <span className="profile-team-dot" style={{ background: myTeam.primary_color }} />
                 {myTeam.name}
-              </span>
+              </button>
             ) : (<span style={{ opacity: 0.6 }}>No team yet</span>)}
             {user.created_at && (
               <span style={{ opacity: 0.55 }}>· joined {new Date(user.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
