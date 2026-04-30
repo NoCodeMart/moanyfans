@@ -52,8 +52,11 @@ button { font-family: inherit; cursor: pointer; }
 /* ═══ APP SHELL ═══ */
 .app {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 320px;
-  max-width: 1600px;
+  /* X-style: slim left nav, narrower middle column, wider right rail of info */
+  grid-template-columns: 240px minmax(0, 620px) 380px;
+  justify-content: center;
+  gap: 24px;
+  max-width: 1400px;
   margin: 0 auto;
   position: relative;
   z-index: 2;
@@ -1127,8 +1130,8 @@ body[data-dark="1"] {
 /* ═══ MOBILE / RESPONSIVE ═══ */
 
 /* Tablet: drop the right aside */
-@media (max-width: 1100px) {
-  .app { grid-template-columns: 240px minmax(0, 1fr); }
+@media (max-width: 1280px) {
+  .app { grid-template-columns: 240px minmax(0, 1fr); gap: 16px; }
   .aside { display: none; }
   .main { border-right: 0; }
 }
