@@ -99,11 +99,12 @@ function timeAgo(iso: string): string {
 
 // ── Reaction Bar ────────────────────────────────────────────────────────────
 
+// DB enum names stay (laughs/agrees/cope/ratio) — only the UI labels + emoji change.
 const REACTIONS: { key: ReactionKind; label: string; emoji: string; color: string }[] = [
-  { key: 'laughs', label: 'LAUGHS', emoji: 'HA', color: 'var(--yellow)' },
-  { key: 'agrees', label: 'AGREES', emoji: '✓', color: 'var(--green, #06a77d)' },
-  { key: 'cope',   label: 'COPE',   emoji: '😭', color: 'var(--blue)' },
-  { key: 'ratio',  label: 'RATIO',  emoji: 'X', color: 'var(--red)' },
+  { key: 'laughs', label: 'HA',     emoji: '😂', color: 'var(--yellow)' },
+  { key: 'agrees', label: 'TRUE',   emoji: '💯', color: 'var(--green, #06a77d)' },
+  { key: 'cope',   label: 'CLOWN',  emoji: '🤡', color: 'var(--blue)' },
+  { key: 'ratio',  label: 'SEETHE', emoji: '🧂', color: 'var(--red)' },
 ];
 
 function ReactionBar({ moan }: { moan: Moan }) {
@@ -1047,10 +1048,10 @@ export function MeProfile({ onPickTeam }: { onPickTeam: () => void }): ReactNode
       {/* Stats row */}
       <div className="profile-stats">
         <Stat label="MOANS" value={stats.data?.moans ?? 0} />
-        <Stat label="HA" value={stats.data?.laughs_received ?? 0} colour="var(--yellow)" />
-        <Stat label="AGR" value={stats.data?.agrees_received ?? 0} colour="var(--green, #06a77d)" />
-        <Stat label="COPE" value={stats.data?.cope_received ?? 0} colour="var(--blue)" />
-        <Stat label="RATIO" value={stats.data?.ratio_received ?? 0} colour="var(--red)" />
+        <Stat label="😂 HA" value={stats.data?.laughs_received ?? 0} colour="var(--yellow)" />
+        <Stat label="💯 TRUE" value={stats.data?.agrees_received ?? 0} colour="var(--green, #06a77d)" />
+        <Stat label="🤡 CLOWN" value={stats.data?.cope_received ?? 0} colour="var(--blue)" />
+        <Stat label="🧂 SEETHE" value={stats.data?.ratio_received ?? 0} colour="var(--red)" />
         <Stat label="STREAK" value={stats.data?.streak_days ?? 0} suffix="d" />
       </div>
 

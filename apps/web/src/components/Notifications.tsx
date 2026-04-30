@@ -102,7 +102,10 @@ function NotifRow({ n, onOpenUser, onOpenMoan }:
   } else if (n.kind === 'reaction') {
     const handle = String(p.reactor_handle ?? 'someone');
     const r = String(p.reaction ?? '');
-    const label = r === 'laughs' ? 'HA' : r === 'agrees' ? 'AGREE' : r === 'cope' ? 'COPE' : 'RATIO';
+    const label = r === 'laughs' ? '😂 HA'
+                  : r === 'agrees' ? '💯 TRUE'
+                  : r === 'cope' ? '🤡 CLOWN'
+                  : '🧂 SEETHE';
     body = <><b>@{handle}</b> hit <b>{label}</b> on your moan.</>;
     click = () => onOpenMoan(String(p.moan_id ?? ''));
   } else {

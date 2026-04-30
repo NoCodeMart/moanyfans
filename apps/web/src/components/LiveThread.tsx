@@ -313,10 +313,10 @@ function ThreadRow({
         {(item.laughs || item.agrees || item.cope || item.ratio) ? (
           <div style={{ display: 'flex', gap: 12, marginTop: 6,
                          fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.6 }}>
-            {!!item.laughs && <span>HA {item.laughs}</span>}
-            {!!item.agrees && <span>AGR {item.agrees}</span>}
-            {!!item.cope && <span>COPE {item.cope}</span>}
-            {!!item.ratio && <span>RATIO {item.ratio}</span>}
+            {!!item.laughs && <span>😂 {item.laughs}</span>}
+            {!!item.agrees && <span>💯 {item.agrees}</span>}
+            {!!item.cope && <span>🤡 {item.cope}</span>}
+            {!!item.ratio && <span>🧂 {item.ratio}</span>}
           </div>
         ) : null}
       </div>
