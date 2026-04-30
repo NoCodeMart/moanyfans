@@ -4,7 +4,7 @@
  * with dummy data until those features ship in v1.1.
  */
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, mediaUrl, type MediaUpload, type Moan, type ReactionKind, type Team, type UserRef } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import {
@@ -378,6 +378,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
         >
           {moan.reply_count > 0 ? 'OPEN THREAD →' : 'OPEN'}
         </button>
+        <DeleteMoanButton moan={moan} />
       </div>
       <ShareBar moan={moan} />
     </article>
@@ -551,6 +552,37 @@ export function Composer({ open, onClose, replyTo }: {
         <ComposerForm variant="modal" autoFocus onPosted={onClose} replyTo={replyTo ?? null} />
       </div>
     </div>
+  );
+}
+
+function DeleteMoanButton({ moan }: { moan: Moan }) {
+  const { user } = useCurrentUser();
+  const qc = useQueryClient();
+  const del = useMutation({
+    mutationFn: () => api.deleteMoan(moan.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['feed'] });
+      qc.invalidateQueries({ queryKey: ['moan', moan.id] });
+      if (moan.parent_moan_id) {
+        qc.invalidateQueries({ queryKey: ['moan', moan.parent_moan_id, 'replies'] });
+      }
+      qc.invalidateQueries({ queryKey: ['fixture-thread'] });
+    },
+  });
+  if (!user || user.handle !== moan.user.handle) return null;
+  return (
+    <button
+      type="button"
+      className="moan-reply-open"
+      onClick={() => {
+        if (window.confirm('Delete this moan? This cannot be undone.')) del.mutate();
+      }}
+      disabled={del.isPending}
+      style={{ color: 'var(--red)' }}
+      aria-label="Delete this moan"
+    >
+      {del.isPending ? '…' : 'DELETE'}
+    </button>
   );
 }
 

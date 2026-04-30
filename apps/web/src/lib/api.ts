@@ -372,6 +372,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ kind }),
     }),
+  deleteMoan: (moanId: string) =>
+    request<{ status: string }>(`/moans/${moanId}`, { method: 'DELETE' }),
   reportMoan: (moanId: string, reason: string) =>
     request<{ status: string }>(`/moans/${moanId}/report`, {
       method: 'POST',

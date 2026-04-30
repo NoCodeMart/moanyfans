@@ -433,6 +433,31 @@ class ReportRequest(BaseModel):
     reason: str = Field(min_length=2, max_length=500)
 
 
+@router.delete("/{moan_id}")
+async def delete_moan(
+    moan_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, str]:
+    """Soft-delete a moan. Author only. Reply chain stays intact —
+    the row is hidden everywhere by the deleted_at IS NULL filter."""
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        owner = await conn.fetchval(
+            "SELECT user_id::text FROM moans WHERE id = $1 AND deleted_at IS NULL",
+            moan_id,
+        )
+        if not owner:
+            raise HTTPException(404, "Moan not found")
+        if owner != user.id:
+            raise HTTPException(403, "Not your moan to delete")
+        await conn.execute(
+            "UPDATE moans SET deleted_at = now() WHERE id = $1",
+            moan_id,
+        )
+    return {"status": "deleted"}
+
+
 @router.post("/{moan_id}/report", status_code=status.HTTP_201_CREATED)
 async def report_moan(
     moan_id: str,
