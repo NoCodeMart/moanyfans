@@ -54,8 +54,9 @@ button { font-family: inherit; cursor: pointer; }
   display: grid;
   /* X-style: slim left nav, narrower middle column, wider right rail of info */
   grid-template-columns: 240px minmax(0, 620px) 380px;
+  align-items: start;
   justify-content: center;
-  gap: 24px;
+  gap: 0;
   max-width: 1400px;
   margin: 0 auto;
   position: relative;
@@ -155,7 +156,7 @@ body[data-dark="1"] {
 /* ═══ NAV (left) ═══ */
 .nav {
   padding: 24px 16px;
-  border-right: 2px solid var(--ink);
+  border-right: 1px solid var(--rule, #c7bfa9);
   position: sticky; top: 90px;
   align-self: start;
   height: calc(100vh - 90px);
@@ -218,7 +219,7 @@ body[data-dark="1"] {
 .main {
   padding: 0 24px 80px;
   min-width: 0;
-  border-right: 2px solid var(--ink);
+  border-right: 1px solid var(--rule, #c7bfa9);
 }
 
 /* ═══ ASIDE (right) ═══ */
