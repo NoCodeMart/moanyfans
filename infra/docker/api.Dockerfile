@@ -13,7 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 COPY apps/api/pyproject.toml ./
 RUN pip install fastapi 'uvicorn[standard]' asyncpg 'pydantic>=2.9' \
     'pydantic-settings>=2.6' python-dotenv httpx redis 'anthropic>=0.40' structlog \
-    'pyjwt[crypto]>=2.10' 'Pillow>=11.0' 'jinja2>=3.1'
+    'pyjwt[crypto]>=2.10' 'Pillow>=11.0' 'jinja2>=3.1' 'python-multipart>=0.0.20'
+
+# Persistent media volume mount target. The Coolify side must map a named
+# volume here so user uploads survive deploys.
+RUN mkdir -p /app/media
+VOLUME ["/app/media"]
+ENV MEDIA_DIR=/app/media
 
 COPY apps/api/app ./app
 

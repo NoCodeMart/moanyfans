@@ -58,6 +58,10 @@ class MoanOut(BaseModel):
     share_count: int
     tags: list[str] = Field(default_factory=list)
     your_reaction: ReactionKind | None = None
+    media_path: str | None = None
+    media_w: int | None = None
+    media_h: int | None = None
+    media_mime: str | None = None
     created_at: str  # ISO 8601
 
 
@@ -70,6 +74,10 @@ class CreateMoan(BaseModel):
     rage_level: int = Field(default=5, ge=0, le=10)
     fixture_id: str | None = None
     side: Literal["HOME", "AWAY", "NEUTRAL"] | None = None
+    media_path: str | None = Field(default=None, max_length=120, pattern=r"^[a-f0-9]{2}/[a-f0-9]{32}\.webp$")
+    media_w: int | None = Field(default=None, ge=1, le=10_000)
+    media_h: int | None = Field(default=None, ge=1, le=10_000)
+    media_mime: str | None = Field(default=None, max_length=40)
 
 
 class ReactionRequest(BaseModel):
@@ -83,6 +91,7 @@ SELECT
   m.laughs, m.agrees, m.cope, m.ratio,
   m.reply_count, m.share_count,
   m.parent_moan_id::text              AS parent_moan_id,
+  m.media_path, m.media_w, m.media_h, m.media_mime,
   m.created_at,
   u.id::text                          AS user_id,
   u.handle                            AS user_handle,
@@ -154,6 +163,10 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
         share_count=row["share_count"],
         tags=[f"#{s}" for s in row["tag_slugs"]],
         your_reaction=row["your_reaction"],
+        media_path=row["media_path"],
+        media_w=row["media_w"],
+        media_h=row["media_h"],
+        media_mime=row["media_mime"],
         created_at=row["created_at"].isoformat(),
     )
 
@@ -316,13 +329,16 @@ async def create_moan(
             """
             INSERT INTO moans (user_id, team_id, target_user_id, parent_moan_id, kind, status,
               text, rage_level, moderation_score, moderation_reason,
-              fixture_id, match_minute, side)
-            VALUES ($1, $2, $3, $4, $5, $6::moan_status, $7, $8, $9, $10, $11, $12, $13)
+              fixture_id, match_minute, side,
+              media_path, media_w, media_h, media_mime)
+            VALUES ($1, $2, $3, $4, $5, $6::moan_status, $7, $8, $9, $10, $11, $12, $13,
+              $14, $15, $16, $17)
             RETURNING id::text
             """,
             user.id, team_id, target_id, body.parent_moan_id, body.kind, new_status,
             body.text, body.rage_level, mod.score, mod.reason,
             body.fixture_id, match_minute, body.side,
+            body.media_path, body.media_w, body.media_h, body.media_mime,
         )
         # Tags
         slugs = extract_tags(body.text)

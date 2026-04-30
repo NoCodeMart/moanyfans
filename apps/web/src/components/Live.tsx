@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Moan, type ReactionKind, type Team, type UserRef } from '../lib/api';
+import { api, mediaUrl, type MediaUpload, type Moan, type ReactionKind, type Team, type UserRef } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import {
   useCreateMoan, useFeed, useMyMoans, useMyStats, useReact, useSetTeam,
@@ -324,6 +324,29 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
            }}>
           {moan.text}
         </p>
+        {moan.media_path && (
+          <a
+            href={mediaUrl(moan.media_path) ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'block', marginTop: 12, border: '2px solid var(--ink)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={mediaUrl(moan.media_path) ?? ''}
+              width={moan.media_w ?? undefined}
+              height={moan.media_h ?? undefined}
+              alt=""
+              loading="lazy"
+              style={{
+                display: 'block', width: '100%', height: 'auto',
+                aspectRatio: moan.media_w && moan.media_h
+                  ? `${moan.media_w} / ${moan.media_h}` : undefined,
+                background: 'var(--paper)',
+              }}
+            />
+          </a>
+        )}
         {moan.tags.length > 0 && (
           <div className="moan-tags">
             {moan.tags.map(t => (
@@ -530,6 +553,37 @@ export function Composer({ open, onClose, replyTo }: {
   );
 }
 
+function MediaPicker({ hasMedia, uploading, onPick }: {
+  hasMedia: boolean;
+  uploading: boolean;
+  onPick: (file: File) => void;
+}) {
+  const inputId = useMemo(() => `media-${Math.random().toString(36).slice(2, 8)}`, []);
+  return (
+    <>
+      <input
+        id={inputId}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onPick(f);
+          e.target.value = '';
+        }}
+      />
+      <label
+        htmlFor={inputId}
+        className="composer-kind-pill"
+        style={{ cursor: uploading ? 'wait' : 'pointer', opacity: hasMedia ? 0.5 : 1 }}
+        title={hasMedia ? 'Replace image' : 'Attach image'}
+      >
+        {uploading ? '…' : (hasMedia ? '🖼 ✓' : '🖼 +')}
+      </label>
+    </>
+  );
+}
+
 function ComposerForm({
   variant, autoFocus, onPosted, replyTo,
 }: {
@@ -546,6 +600,8 @@ function ComposerForm({
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<boolean>(variant === 'modal');
+  const [media, setMedia] = useState<MediaUpload | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!teamSlug && user?.team_slug) setTeamSlug(user.team_slug);
@@ -568,6 +624,10 @@ function ComposerForm({
         kind, text,
         team_slug: teamSlug || undefined,
         parent_moan_id: replyTo?.moanId,
+        media_path: media?.media_path,
+        media_w: media?.media_w,
+        media_h: media?.media_h,
+        media_mime: media?.media_mime,
       });
       if (replyTo) {
         qc.invalidateQueries({ queryKey: ['moan', replyTo.moanId, 'replies'] });
@@ -577,6 +637,7 @@ function ComposerForm({
         setError('Moan held for review. It will publish if approved.');
       } else {
         setText('');
+        setMedia(null);
         setExpanded(variant === 'modal');
         onPosted?.();
       }
@@ -615,6 +676,31 @@ function ComposerForm({
         }}>{error}</div>
       )}
 
+      {expanded && media && (
+        <div style={{ margin: '0 16px 8px', position: 'relative', display: 'inline-block' }}>
+          <img
+            src={mediaUrl(media.media_path) ?? ''}
+            alt="Attached preview"
+            style={{
+              maxWidth: '100%', maxHeight: 280,
+              border: '2px solid var(--ink)',
+              display: 'block',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setMedia(null)}
+            aria-label="Remove image"
+            style={{
+              position: 'absolute', top: 6, right: 6,
+              background: 'var(--ink)', color: 'var(--cream)', border: 0,
+              width: 28, height: 28, cursor: 'pointer',
+              fontFamily: 'var(--font-mono)', fontSize: 14,
+            }}
+          >×</button>
+        </div>
+      )}
+
       {expanded && (
         <div className="composer-actions">
           <div className="composer-kind-row">
@@ -624,6 +710,22 @@ function ComposerForm({
                 onClick={() => setKind(k.key)}
                 title={k.key}>{k.key}</button>
             ))}
+            <MediaPicker
+              hasMedia={!!media}
+              uploading={uploading}
+              onPick={async (file) => {
+                setError(null);
+                setUploading(true);
+                try {
+                  const m = await api.uploadMedia(file);
+                  setMedia(m);
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setUploading(false);
+                }
+              }}
+            />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div className="composer-counter"
@@ -632,7 +734,7 @@ function ComposerForm({
             <button
               className="composer-post"
               type="button"
-              disabled={!text.trim() || create.isPending}
+              disabled={(!text.trim() && !media) || create.isPending || uploading}
               onClick={submit}
             >{create.isPending ? '…' : 'MOAN'}</button>
           </div>

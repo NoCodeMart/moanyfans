@@ -6,9 +6,10 @@ from fastapi.responses import JSONResponse
 from .config import get_settings
 from .db import lifespan
 from .routers import (
-    battles, fixtures, health, me, moans, notifications, search, seo, share,
+    battles, fixtures, health, me, media, moans, notifications, search, seo, share,
     tags, teams, users,
 )
+from .services.media import MEDIA_DIR
 
 structlog.configure(
     processors=[
@@ -58,6 +59,13 @@ app.include_router(seo.router)
 app.include_router(users.router)
 app.include_router(notifications.router)
 app.include_router(search.router)
+app.include_router(media.router)
+
+# Serve uploaded images. The directory lives outside the source tree (Docker volume)
+# so deploys don't blow user content away.
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 
 @app.middleware("http")

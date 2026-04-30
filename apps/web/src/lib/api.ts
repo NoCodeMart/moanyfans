@@ -1,5 +1,10 @@
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
+export function mediaUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return `${API_URL}/media/${path}`;
+}
+
 export type ReactionKind = 'laughs' | 'agrees' | 'cope' | 'ratio';
 export type MoanKind = 'MOAN' | 'ROAST' | 'BANTER';
 export type MoanStatus = 'PUBLISHED' | 'HELD' | 'REJECTED' | 'REMOVED';
@@ -130,7 +135,18 @@ export type Moan = {
   share_count: number;
   tags: string[];
   your_reaction: ReactionKind | null;
+  media_path: string | null;
+  media_w: number | null;
+  media_h: number | null;
+  media_mime: string | null;
   created_at: string;
+};
+
+export type MediaUpload = {
+  media_path: string;
+  media_w: number;
+  media_h: number;
+  media_mime: string;
 };
 
 export type TrendingTag = {
@@ -216,6 +232,10 @@ export type CreateMoan = {
   rage_level?: number;
   fixture_id?: string;
   side?: Side;
+  media_path?: string;
+  media_w?: number;
+  media_h?: number;
+  media_mime?: string;
 };
 
 export type ThreadItem = {
@@ -315,6 +335,22 @@ export const api = {
   listReplies: (moanId: string) => request<Moan[]>(`/moans/${moanId}/replies`),
   createMoan: (body: CreateMoan) =>
     request<Moan>('/moans', { method: 'POST', body: JSON.stringify(body) }),
+  uploadMedia: async (file: File): Promise<MediaUpload> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${API_URL}/media`, {
+      method: 'POST',
+      body: fd,
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      let detail: string;
+      try { detail = (await res.json()).detail ?? res.statusText; }
+      catch { detail = res.statusText; }
+      throw new Error(`${res.status}: ${detail}`);
+    }
+    return res.json() as Promise<MediaUpload>;
+  },
   reactToMoan: (moanId: string, kind: ReactionKind | null) =>
     request<Moan>(`/moans/${moanId}/react`, {
       method: 'POST',
