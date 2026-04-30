@@ -331,9 +331,10 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              display: 'block', marginTop: 12,
-              border: '2px solid var(--ink)',
-              maxWidth: 460, background: 'var(--ink)',
+              display: 'block', margin: '12px auto 0',
+              border: '1px solid var(--ink)',
+              borderRadius: 16,
+              maxWidth: '100%', background: 'var(--ink)',
               overflow: 'hidden',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -344,8 +345,8 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
               loading="lazy"
               style={{
                 display: 'block',
-                width: '100%', maxHeight: 360,
-                objectFit: 'contain',
+                width: '100%', maxHeight: 380,
+                objectFit: 'cover',
                 background: 'var(--ink)',
               }}
             />
