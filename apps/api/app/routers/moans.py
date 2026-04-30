@@ -193,6 +193,10 @@ async def list_feed(
         " WHERE m.deleted_at IS NULL"
         " AND m.status = 'PUBLISHED'"
         " AND m.parent_moan_id IS NULL"
+        " AND m.user_id NOT IN ("
+        "   SELECT blocker_id FROM user_blocks WHERE blocked_id = $1"
+        "   UNION"
+        "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)"
     )
     args: list = [user.id]
     if team:
@@ -239,7 +243,11 @@ async def get_moan(
     pool = request.app.state.pool
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            _FEED_SQL + " WHERE m.id = $2 AND m.deleted_at IS NULL",
+            _FEED_SQL + " WHERE m.id = $2 AND m.deleted_at IS NULL"
+            " AND m.user_id NOT IN ("
+            "   SELECT blocker_id FROM user_blocks WHERE blocked_id = $1"
+            "   UNION"
+            "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)",
             user.id,
             moan_id,
         )
@@ -258,7 +266,12 @@ async def list_replies(
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             _FEED_SQL + " WHERE m.parent_moan_id = $2 AND m.deleted_at IS NULL "
-            " AND m.status = 'PUBLISHED' ORDER BY m.created_at ASC",
+            " AND m.status = 'PUBLISHED'"
+            " AND m.user_id NOT IN ("
+            "   SELECT blocker_id FROM user_blocks WHERE blocked_id = $1"
+            "   UNION"
+            "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)"
+            " ORDER BY m.created_at ASC",
             user.id,
             moan_id,
         )
@@ -378,6 +391,15 @@ async def react_to_moan(
     """Set/swap/remove your reaction. Triggers update denormalised counts."""
     pool = request.app.state.pool
     async with pool.acquire() as conn, conn.transaction():
+        # Block check: can't react on a moan if either side has blocked the other.
+        if await conn.fetchval(
+            "SELECT 1 FROM moans m JOIN user_blocks b "
+            "  ON (b.blocker_id = m.user_id AND b.blocked_id = $1) "
+            "  OR (b.blocker_id = $1 AND b.blocked_id = m.user_id) "
+            "WHERE m.id = $2",
+            user.id, moan_id,
+        ):
+            raise HTTPException(403, "Cannot react on this moan.")
         existing = await conn.fetchval(
             "SELECT kind FROM reactions WHERE user_id = $1 AND moan_id = $2",
             user.id, moan_id,

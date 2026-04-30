@@ -29,6 +29,8 @@ class PublicUser(BaseModel):
     moan_count: int = 0
     you_follow: bool = False
     follows_you: bool = False
+    you_blocked: bool = False
+    blocked_you: bool = False
     created_at: str | None = None
 
 
@@ -55,6 +57,8 @@ async def _load_public(
             raise HTTPException(404, "User not found")
         you_follow = False
         follows_you = False
+        you_blocked = False
+        blocked_you = False
         if viewer_id and viewer_id != row["id"]:
             you_follow = bool(await conn.fetchval(
                 "SELECT 1 FROM follows WHERE follower_id = $1 AND followed_id = $2",
@@ -62,6 +66,14 @@ async def _load_public(
             ))
             follows_you = bool(await conn.fetchval(
                 "SELECT 1 FROM follows WHERE follower_id = $1 AND followed_id = $2",
+                row["id"], viewer_id,
+            ))
+            you_blocked = bool(await conn.fetchval(
+                "SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2",
+                viewer_id, row["id"],
+            ))
+            blocked_you = bool(await conn.fetchval(
+                "SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2",
                 row["id"], viewer_id,
             ))
     return PublicUser(
@@ -75,6 +87,7 @@ async def _load_public(
         following_count=row["following_count"],
         moan_count=row["moan_count"],
         you_follow=you_follow, follows_you=follows_you,
+        you_blocked=you_blocked, blocked_you=blocked_you,
         created_at=row["created_at"].isoformat() if row["created_at"] else None,
     )
 
@@ -105,6 +118,14 @@ async def follow(
             raise HTTPException(404, "User not found")
         if str(target_id) == user.id:
             raise HTTPException(400, "You cannot follow yourself")
+        # Either side blocking severs follow attempts.
+        if await conn.fetchval(
+            "SELECT 1 FROM user_blocks "
+            "WHERE (blocker_id = $1 AND blocked_id = $2) "
+            "   OR (blocker_id = $2 AND blocked_id = $1)",
+            user.id, target_id,
+        ):
+            raise HTTPException(403, "Cannot follow this user.")
         await conn.execute(
             "INSERT INTO follows (follower_id, followed_id) VALUES ($1, $2) "
             "ON CONFLICT DO NOTHING",
@@ -140,6 +161,57 @@ class FollowListItem(BaseModel):
     team_primary: str | None = None
     bio: str | None = None
     you_follow: bool = False
+
+
+@router.post("/{handle}/block", response_model=PublicUser, status_code=status.HTTP_201_CREATED)
+async def block(
+    handle: str, request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> PublicUser:
+    limit_user(user, action="block", limit=30, window_s=60)
+    pool = request.app.state.pool
+    async with pool.acquire() as conn, conn.transaction():
+        target_id = await conn.fetchval(
+            "SELECT id FROM users WHERE lower(handle) = lower($1) AND deleted_at IS NULL",
+            handle,
+        )
+        if not target_id:
+            raise HTTPException(404, "User not found")
+        if str(target_id) == user.id:
+            raise HTTPException(400, "You cannot block yourself")
+        await conn.execute(
+            "INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2) "
+            "ON CONFLICT DO NOTHING",
+            user.id, target_id,
+        )
+        # Blocking severs follows in both directions — prevents stale follow
+        # state from leaking into notifications/feeds for either party.
+        await conn.execute(
+            "DELETE FROM follows WHERE (follower_id = $1 AND followed_id = $2) "
+            "OR (follower_id = $2 AND followed_id = $1)",
+            user.id, target_id,
+        )
+    return await _load_public(pool, handle, user.id)
+
+
+@router.delete("/{handle}/block", response_model=PublicUser)
+async def unblock(
+    handle: str, request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> PublicUser:
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        target_id = await conn.fetchval(
+            "SELECT id FROM users WHERE lower(handle) = lower($1) AND deleted_at IS NULL",
+            handle,
+        )
+        if not target_id:
+            raise HTTPException(404, "User not found")
+        await conn.execute(
+            "DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2",
+            user.id, target_id,
+        )
+    return await _load_public(pool, handle, user.id)
 
 
 @router.get("/{handle}/followers", response_model=list[FollowListItem])

@@ -1,8 +1,43 @@
 import type { CSSProperties } from 'react';
-import type { PublicUser } from '../lib/api';
+import { api, type PublicUser } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import { useFollow, useUser, useUserMoans } from '../lib/hooks';
 import { MoanCard } from './Live';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+function BlockToggle({ handle, blocked }: { handle: string; blocked: boolean }) {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: () => blocked ? api.unblockUser(handle) : api.blockUser(handle),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['user', handle] });
+      qc.invalidateQueries({ queryKey: ['feed'] });
+    },
+  });
+  const confirmAndRun = () => {
+    if (blocked || window.confirm(`Block @${handle}? You won't see each other anywhere.`)) {
+      m.mutate();
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={confirmAndRun}
+      disabled={m.isPending}
+      title={blocked ? 'Unblock' : 'Block this user'}
+      style={{
+        background: blocked ? 'var(--ink)' : 'var(--paper)',
+        color: blocked ? 'var(--cream)' : 'var(--ink)',
+        border: '2px solid var(--ink)',
+        padding: '8px 14px', cursor: 'pointer',
+        fontFamily: 'var(--font-display)', fontSize: 13,
+        letterSpacing: '0.05em', borderRadius: 999,
+      }}
+    >
+      {m.isPending ? '…' : blocked ? 'UNBLOCK' : 'BLOCK'}
+    </button>
+  );
+}
 
 function PublicAvatar({ user, size = 120 }:
   { user: { handle: string; avatar_seed: string | null; avatar_style: string | null; team_primary: string | null }; size?: number }) {
@@ -106,23 +141,26 @@ export function UserProfileView({
           </div>
         </div>
         {!isMe && data && (
-          <button
-            type="button"
-            onClick={() => follow.mutate(!data.you_follow)}
-            disabled={follow.isPending}
-            style={{
-              alignSelf: 'flex-end', marginBottom: 8,
-              background: data.you_follow ? 'var(--cream)' : 'var(--red)',
-              color: data.you_follow ? 'var(--ink)' : 'var(--cream)',
-              border: '2px solid var(--ink)',
-              padding: '8px 18px', cursor: 'pointer',
-              fontFamily: 'var(--font-display)', fontSize: 13,
-              letterSpacing: '0.05em',
-              borderRadius: 999,
-            }}
-          >
-            {follow.isPending ? '…' : data.you_follow ? 'FOLLOWING ✓' : 'FOLLOW +'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-end', marginBottom: 8 }}>
+            {!data.you_blocked && (
+              <button
+                type="button"
+                onClick={() => follow.mutate(!data.you_follow)}
+                disabled={follow.isPending || data.blocked_you}
+                style={{
+                  background: data.you_follow ? 'var(--cream)' : 'var(--red)',
+                  color: data.you_follow ? 'var(--ink)' : 'var(--cream)',
+                  border: '2px solid var(--ink)',
+                  padding: '8px 18px', cursor: 'pointer',
+                  fontFamily: 'var(--font-display)', fontSize: 13,
+                  letterSpacing: '0.05em', borderRadius: 999,
+                }}
+              >
+                {follow.isPending ? '…' : data.you_follow ? 'FOLLOWING ✓' : 'FOLLOW +'}
+              </button>
+            )}
+            <BlockToggle handle={handle} blocked={data.you_blocked} />
+          </div>
         )}
       </div>
 
