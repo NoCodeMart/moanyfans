@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     guest_handle: str = Field(default="GUEST_TESTER")
 
     anthropic_api_key: str | None = None
+    groq_api_key: str | None = None
     log_level: str = "INFO"
 
     # Public URLs for share/OG meta + redirects

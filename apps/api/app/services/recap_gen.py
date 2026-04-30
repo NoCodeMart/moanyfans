@@ -8,18 +8,10 @@ volume to ~30/week.
 
 from __future__ import annotations
 
-import json
-import re
-
 import asyncpg
 import structlog
-from anthropic import AsyncAnthropic
-
-from ..config import get_settings
 
 log = structlog.get_logger(__name__)
-
-_MODEL = "claude-haiku-4-5-20251001"
 
 _RECAP_LEAGUES = {"Premier League", "Scottish Premiership"}
 
@@ -42,10 +34,6 @@ async def generate_recap_for_fixture(
     fixture_id: str,
 ) -> bool:
     """Generate + insert a recap if eligible. Returns True on insert."""
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return False
-
     row = await conn.fetchrow(
         """
         SELECT f.id::text AS id, f.competition, f.home_score, f.away_score,
@@ -71,25 +59,12 @@ async def generate_recap_for_fixture(
         "Write the recap."
     )
 
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-    try:
-        msg = await client.messages.create(
-            model=_MODEL,
-            max_tokens=400,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        content = msg.content[0].text if msg.content else "{}"
-        match = re.search(r"\{.*\}", content, re.DOTALL)
-        if not match:
-            log.warning("recap_no_json", text=content[:200])
-            return False
-        data = json.loads(match.group(0))
-        headline = str(data.get("headline", ""))[:120].strip()
-        body = str(data.get("body", ""))[:600].strip()
-    except Exception:
-        log.exception("recap_generation_failed", fixture_id=fixture_id)
+    from . import llm
+    data = await llm.complete_json(_SYSTEM_PROMPT, user_prompt, max_tokens=400)
+    if not data:
         return False
+    headline = str(data.get("headline", ""))[:120].strip()
+    body = str(data.get("body", ""))[:600].strip()
     if not headline or not body:
         return False
 
@@ -99,7 +74,7 @@ async def generate_recap_for_fixture(
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (fixture_id) DO NOTHING
         """,
-        row["id"], headline, body, _MODEL,
+        row["id"], headline, body, "groq:llama-3.3-70b",
     )
     log.info("recap_generated", fixture_id=fixture_id, headline=headline[:60])
     return True

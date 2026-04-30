@@ -8,19 +8,15 @@ If ANTHROPIC_API_KEY is unset (e.g. dev), returns score=0 and proceeds.
 
 from __future__ import annotations
 
-import json
-import re
 from dataclasses import dataclass
 
 import structlog
-from anthropic import AsyncAnthropic
 
-from ..config import get_settings
+from . import llm
 
 log = structlog.get_logger(__name__)
 
 _HOLD_THRESHOLD = 0.7
-_MODEL = "claude-haiku-4-5-20251001"
 
 _SYSTEM_PROMPT = """You score user-generated sports banter posts for legal risk on Moanyfans, a UK \
 football moaning platform.
@@ -47,30 +43,14 @@ class ModerationResult:
 
 
 async def moderate_moan(text: str) -> ModerationResult:
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return ModerationResult(score=0.0, reason="moderation disabled (no key)", should_hold=False)
-
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    data = await llm.complete_json(_SYSTEM_PROMPT, text, max_tokens=200)
+    if not data:
+        # Fail open — never block users on a flaky moderation call.
+        return ModerationResult(score=0.0, reason="moderation unavailable", should_hold=False)
     try:
-        msg = await client.messages.create(
-            model=_MODEL,
-            max_tokens=200,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": text}],
-        )
-        content = msg.content[0].text if msg.content else "{}"
-        # Models occasionally wrap JSON in prose — pull the first JSON object.
-        match = re.search(r"\{.*?\}", content, re.DOTALL)
-        if not match:
-            log.warning("moderation_no_json", text=content[:200])
-            return ModerationResult(score=0.0, reason="parse failed (open)", should_hold=False)
-        data = json.loads(match.group(0))
         score = float(data.get("score", 0))
         reason = str(data.get("reason", ""))[:200]
-    except Exception:
-        log.exception("moderation_call_failed")
-        # Fail open — don't block users when our service flakes.
-        return ModerationResult(score=0.0, reason="moderation call failed", should_hold=False)
-
+    except (TypeError, ValueError):
+        log.warning("moderation_bad_payload", data=str(data)[:200])
+        return ModerationResult(score=0.0, reason="moderation parse failed", should_hold=False)
     return ModerationResult(score=score, reason=reason, should_hold=score >= _HOLD_THRESHOLD)

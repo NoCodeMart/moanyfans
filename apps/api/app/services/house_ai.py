@@ -17,9 +17,8 @@ from datetime import UTC, datetime
 
 import asyncpg
 import structlog
-from anthropic import AsyncAnthropic
+from . import llm
 
-from ..config import get_settings
 
 log = structlog.get_logger(__name__)
 
@@ -66,23 +65,7 @@ Rules:
 
 
 async def _claude_json(system: str, user: str) -> dict | None:
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return None
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-    try:
-        msg = await client.messages.create(
-            model=_MODEL, max_tokens=400, system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        content = msg.content[0].text if msg.content else "{}"
-        m = re.search(r"\{.*\}", content, re.DOTALL)
-        if not m:
-            return None
-        return json.loads(m.group(0))
-    except Exception:
-        log.exception("house_ai_call_failed")
-        return None
+    return await llm.complete_json(system, user, max_tokens=400)
 
 
 async def _post_moan(

@@ -21,14 +21,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 import asyncpg
-import httpx
 import structlog
 
-from ..config import get_settings
+from . import llm
 
 log = structlog.get_logger(__name__)
-
-_MODEL = "claude-haiku-4-5-20251001"
 
 # Each persona is one entry. The system prompt sets the voice; the schedule
 # weight controls how often they're picked relative to others.
@@ -90,40 +87,16 @@ def _pick_persona() -> dict[str, Any]:
     return random.choices(_PERSONAS, weights=weights, k=1)[0]
 
 
-async def _claude_json(system: str, user: str) -> dict[str, Any] | None:
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": _MODEL,
-                    "max_tokens": 250,
-                    "system": system + (
-                        '\n\nReturn JSON ONLY: '
-                        '{"text": "<≤200 chars including hashtag>", '
-                        '"kind": "ROAST|MOAN|BANTER"}'
-                    ),
-                    "messages": [{"role": "user", "content": user}],
-                },
-            )
-            r.raise_for_status()
-            data = r.json()
-        content = data["content"][0]["text"] if data.get("content") else "{}"
-        match = re.search(r"\{.*?\}", content, re.DOTALL)
-        if not match:
-            return None
-        return json.loads(match.group(0))
-    except Exception:
-        log.exception("seeder_claude_call_failed")
-        return None
+async def _seed_call(system: str, user: str) -> dict[str, Any] | None:
+    return await llm.complete_json(
+        system + (
+            '\n\nReturn JSON ONLY: '
+            '{"text": "<≤200 chars including hashtag>", '
+            '"kind": "ROAST|MOAN|BANTER"}'
+        ),
+        user,
+        max_tokens=250,
+    )
 
 
 async def _pick_target_team(conn: asyncpg.Connection) -> dict[str, Any] | None:
