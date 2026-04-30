@@ -37,6 +37,7 @@ class UserRef(BaseModel):
     id: str
     handle: str
     avatar_seed: str | None = None
+    avatar_style: str | None = None
     team_id: str | None = None
 
 
@@ -96,6 +97,7 @@ SELECT
   u.id::text                          AS user_id,
   u.handle                            AS user_handle,
   u.avatar_seed                       AS user_avatar_seed,
+  u.avatar_style                      AS user_avatar_style,
   u.team_id::text                     AS user_team_id,
   t.id::text                          AS team_id,
   t.slug                              AS team_slug,
@@ -105,6 +107,7 @@ SELECT
   tu.id::text                         AS target_id,
   tu.handle                           AS target_handle,
   tu.avatar_seed                      AS target_avatar_seed,
+  tu.avatar_style                     AS target_avatar_style,
   tu.team_id::text                    AS target_team_id,
   COALESCE(
     (SELECT array_agg(tg.slug) FROM moan_tags mt
@@ -138,6 +141,7 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
             id=row["target_id"],
             handle=row["target_handle"],
             avatar_seed=row["target_avatar_seed"],
+            avatar_style=row["target_avatar_style"],
             team_id=row["target_team_id"],
         )
     return MoanOut(
@@ -146,6 +150,7 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
             id=row["user_id"],
             handle=row["user_handle"],
             avatar_seed=row["user_avatar_seed"],
+            avatar_style=row["user_avatar_style"],
             team_id=row["user_team_id"],
         ),
         team=team,

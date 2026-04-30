@@ -26,12 +26,29 @@ function defaultOpenUser(handle: string) {
 // ── Avatar / Crest helpers (API-shape) ──────────────────────────────────────
 
 function UserAvatar({ user, size = 44, fallbackColor = '#0a0908' }: {
-  user: UserRef | { handle: string; team_id?: string | null; avatar_seed?: string | null };
+  user: UserRef | {
+    handle: string;
+    team_id?: string | null;
+    avatar_seed?: string | null;
+    avatar_style?: string | null;
+  };
   size?: number;
   fallbackColor?: string;
 }) {
   const teams = useTeams().data ?? [];
   const team = user.team_id ? teams.find(t => t.id === user.team_id) : undefined;
+  const seed = user.avatar_seed || user.handle;
+  if (user.avatar_style) {
+    const url = `https://api.dicebear.com/9.x/${encodeURIComponent(user.avatar_style)}/svg?seed=${encodeURIComponent(seed)}`;
+    return (
+      <span className="avatar" style={{
+        width: size, height: size, background: team?.primary_color || 'var(--cream)',
+      }}>
+        <img src={url} alt="" width={size} height={size}
+             style={{ display: 'block', width: '100%', height: '100%' }} />
+      </span>
+    );
+  }
   const initials = user.avatar_seed?.slice(0, 2).toUpperCase()
     || user.handle.slice(0, 2).toUpperCase();
   return (
@@ -102,38 +119,39 @@ function ShareBar({ moan }: { moan: Moan }) {
   const hasNativeShare = typeof navigator !== 'undefined'
     && typeof (navigator as Navigator).share === 'function';
 
+  const enc = encodeURIComponent;
+  const xUrl = `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`;
+  const waUrl = `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}`;
+  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`;
+  const redditUrl = `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}`;
+
   const copy = () => {
     navigator.clipboard.writeText(url).catch(() => {});
     setCopied(true);
     window.setTimeout(() => { setCopied(false); setOpen(false); }, 1200);
   };
 
-  const onClick = async () => {
+  const moreClick = async () => {
     if (hasNativeShare) {
       try { await (navigator as Navigator).share({ title: 'Moanyfans', text, url }); }
-      catch { /* user cancelled */ }
+      catch { /* cancelled */ }
       return;
     }
     setOpen(o => !o);
   };
 
-  const enc = encodeURIComponent;
-  const links = [
-    { label: 'WhatsApp', href: `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}` },
-    { label: 'X',        href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}` },
-    { label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}` },
-    { label: 'Reddit',   href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}` },
-  ];
-
   return (
-    <span style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        type="button"
-        onClick={onClick}
-        className="moan-icon-btn"
-        aria-label="Share this moan"
-        title="Share"
-      >
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 0, marginLeft: 'auto', position: 'relative' }}>
+      <a href={xUrl} target="_blank" rel="noopener noreferrer"
+         className="moan-icon-btn" aria-label="Share on X" title="Share on X">
+        <XIcon />
+      </a>
+      <a href={waUrl} target="_blank" rel="noopener noreferrer"
+         className="moan-icon-btn" aria-label="Share on WhatsApp" title="Share on WhatsApp">
+        <WhatsAppIcon />
+      </a>
+      <button type="button" onClick={moreClick}
+              className="moan-icon-btn" aria-label="More share options" title="More">
         <ShareIcon />
       </button>
       {open && !hasNativeShare && (
@@ -142,14 +160,15 @@ function ShareBar({ moan }: { moan: Moan }) {
           background: 'var(--paper)', border: '2px solid var(--ink)',
           boxShadow: '3px 3px 0 var(--ink)',
           padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
-          minWidth: 140, zIndex: 10,
+          minWidth: 160, zIndex: 10,
           fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.05em',
         }}>
-          {links.map(l => (
-            <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
-               style={{ padding: '6px 10px', color: 'var(--ink)', textDecoration: 'none' }}
-               onClick={() => setOpen(false)}>{l.label}</a>
-          ))}
+          <a href={fbUrl} target="_blank" rel="noopener noreferrer"
+             style={{ padding: '6px 10px', color: 'var(--ink)', textDecoration: 'none' }}
+             onClick={() => setOpen(false)}>Facebook</a>
+          <a href={redditUrl} target="_blank" rel="noopener noreferrer"
+             style={{ padding: '6px 10px', color: 'var(--ink)', textDecoration: 'none' }}
+             onClick={() => setOpen(false)}>Reddit</a>
           <button type="button" onClick={copy}
             style={{
               padding: '6px 10px', textAlign: 'left',

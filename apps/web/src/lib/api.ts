@@ -108,6 +108,7 @@ export type UserRef = {
   id: string;
   handle: string;
   avatar_seed: string | null;
+  avatar_style: string | null;
   team_id: string | null;
 };
 
