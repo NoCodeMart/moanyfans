@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Ticker, Wordmark } from './components/Brand';
 import { Composer, Feed, MeProfile, MoanDetail, TeamsPage, TrendingRail } from './components/Live';
+import { AdminPage } from './components/Admin';
 import { BattlesPage, BattlesAsideCard, LiveMoanAlong } from './components/LivePages';
 import { Landing } from './components/Landing';
 import { LegalLayer, type LegalView } from './components/LegalLayer';
@@ -23,7 +24,7 @@ const PALETTES: Record<string, Palette> = {
   newsprint: { red: '#9d0208', orange: '#dc2f02', yellow: '#e9c46a', blue: '#264653' },
 };
 
-type Route = 'feed' | 'live' | 'battle' | 'rivalry' | 'leaderboard' | 'profile' | 'teams';
+type Route = 'feed' | 'live' | 'battle' | 'rivalry' | 'leaderboard' | 'profile' | 'teams' | 'admin';
 
 const NAV_ITEMS: { id: Route; label: string; icon: string; section: 'main' | 'discover' | 'you'; badge?: string; demo?: boolean }[] = [
   { id: 'feed',        label: 'THE FEED',         icon: 'F', section: 'main' },
@@ -326,6 +327,17 @@ export default function App() {
             <span style={{ flex: 1 }}>{n.label}</span>
           </button>
         ))}
+        {user?.is_admin && (
+          <button
+            type="button"
+            className={'nav-item' + (route === 'admin' ? ' active' : '')}
+            onClick={() => setRoute('admin')}
+          >
+            <span className="nav-item-icon">A</span>
+            <span style={{ flex: 1 }}>ADMIN</span>
+            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>● OWNER</span>
+          </button>
+        )}
 
         <button className="nav-cta" onClick={() => setComposerOpen(true)} type="button">
           FILE A MOAN
@@ -463,6 +475,7 @@ export default function App() {
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'battle' && <BattlesPage />}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'admin' && <AdminPage />}
       </main>
 
       <aside className="aside">

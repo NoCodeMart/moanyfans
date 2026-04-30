@@ -261,6 +261,38 @@ export type ThreadItem = {
   is_house: boolean | null;
 };
 
+export type AdminStats = {
+  users_total: number;
+  users_24h: number;
+  moans_total: number;
+  moans_24h: number;
+  reports_open: number;
+  moans_held: number;
+};
+
+export type ReportRow = {
+  id: string;
+  moan_id: string;
+  moan_text: string;
+  moan_status: string;
+  moan_user_handle: string;
+  moan_deleted: boolean;
+  reporter_handle: string;
+  reason: string;
+  created_at: string;
+};
+
+export type AdminUserRow = {
+  id: string;
+  handle: string;
+  is_admin: boolean;
+  is_house: boolean;
+  deleted: boolean;
+  moan_count: number;
+  follower_count: number;
+  created_at: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -312,6 +344,23 @@ export const api = {
     request<PublicUser>(`/users/${encodeURIComponent(handle)}/mute`, { method: 'POST' }),
   unmuteUser: (handle: string) =>
     request<PublicUser>(`/users/${encodeURIComponent(handle)}/mute`, { method: 'DELETE' }),
+
+  // ── Admin
+  adminStats: () => request<AdminStats>('/admin/stats'),
+  adminListReports: (resolved = false) =>
+    request<ReportRow[]>(`/admin/reports?resolved=${resolved}`),
+  adminResolveReport: (id: string) =>
+    request<{ status: string }>(`/admin/reports/${id}/resolve`, { method: 'POST' }),
+  adminModerateMoan: (id: string, action: 'remove' | 'restore' | 'publish') =>
+    request<{ status: string }>(`/admin/moans/${id}/moderate`, {
+      method: 'POST', body: JSON.stringify({ action }),
+    }),
+  adminListUsers: (q?: string, include_deleted = false) =>
+    request<AdminUserRow[]>(`/admin/users?include_deleted=${include_deleted}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+  adminUserAction: (handle: string, action: 'ban' | 'unban' | 'make_admin' | 'remove_admin') =>
+    request<{ status: string }>(`/admin/users/${encodeURIComponent(handle)}/action`, {
+      method: 'POST', body: JSON.stringify({ action }),
+    }),
   followingFeed: (limit = 50) =>
     request<Moan[]>(`/moans?following=true&limit=${limit}`),
   tagMoans: (slug: string, limit = 50) =>
