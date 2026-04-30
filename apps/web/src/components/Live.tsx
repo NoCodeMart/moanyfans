@@ -96,97 +96,70 @@ function ReactionBar({ moan }: { moan: Moan }) {
 function ShareBar({ moan }: { moan: Moan }) {
   const url = `${window.location.origin}/m/${moan.id}`;
   const text = `"${moan.text.slice(0, 140)}${moan.text.length > 140 ? '…' : ''}" — @${moan.user.handle} on Moanyfans`;
-  const enc = encodeURIComponent;
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const hasNativeShare = typeof navigator !== 'undefined'
     && typeof (navigator as Navigator).share === 'function';
 
-  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches;
-
-  const nativeShare = async () => {
-    try {
-      await (navigator as Navigator).share({
-        title: 'Moanyfans',
-        text,
-        url,
-      });
-    } catch {
-      // user cancelled or share failed — silent
-    }
-  };
   const copy = () => {
     navigator.clipboard.writeText(url).catch(() => {});
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
+    window.setTimeout(() => { setCopied(false); setOpen(false); }, 1200);
   };
 
-  // Mobile + native share API → single big button → OS share sheet
-  if (isMobile && hasNativeShare) {
-    return (
-      <div style={{
-        display: 'flex', gap: 8, padding: '8px 12px', alignItems: 'center',
-        borderTop: '1px dashed var(--rule, #c7bfa9)',
-      }}>
-        <button
-          type="button"
-          onClick={nativeShare}
-          style={{
-            flex: 1,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            background: 'var(--ink)', color: 'var(--cream)', border: 0,
-            padding: '10px 14px',
-            fontFamily: 'var(--font-display)', fontSize: 14, letterSpacing: '0.05em',
-            borderRadius: 6, cursor: 'pointer',
-          }}
-        >
-          <ShareIcon /> SHARE
-        </button>
-        <button type="button" onClick={copy}
-          aria-label="Copy link" title={copied ? 'Copied!' : 'Copy link'}
-          style={{
-            width: 40, height: 40, background: copied ? 'var(--green, #06a77d)' : 'var(--cream-2)',
-            color: 'var(--ink)', border: '1.5px solid var(--ink)', borderRadius: 6,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          }}>{copied ? <CheckIcon /> : <LinkIcon />}</button>
-      </div>
-    );
-  }
+  const onClick = async () => {
+    if (hasNativeShare) {
+      try { await (navigator as Navigator).share({ title: 'Moanyfans', text, url }); }
+      catch { /* user cancelled */ }
+      return;
+    }
+    setOpen(o => !o);
+  };
 
-  // Desktop / no-native-share → individual brand buttons
-  const links: { label: string; href: string; bg: string; icon: ReactNode }[] = [
-    { label: 'WhatsApp',  href: `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}`, bg: '#25D366', icon: <WhatsAppIcon /> },
-    { label: 'X',         href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`, bg: '#000', icon: <XIcon /> },
-    { label: 'Facebook',  href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`, bg: '#1877F2', icon: <FacebookIcon /> },
-    { label: 'Reddit',    href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}`, bg: '#FF4500', icon: <RedditIcon /> },
+  const enc = encodeURIComponent;
+  const links = [
+    { label: 'WhatsApp', href: `https://api.whatsapp.com/send?text=${enc(text + ' ' + url)}` },
+    { label: 'X',        href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}` },
+    { label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}` },
+    { label: 'Reddit',   href: `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(text)}` },
   ];
+
   return (
-    <div style={{
-      display: 'flex', gap: 6, padding: '8px 12px', alignItems: 'center',
-      borderTop: '1px dashed var(--rule, #c7bfa9)',
-    }}>
-      <span style={{ alignSelf: 'center', opacity: 0.55, marginRight: 4,
-                      fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em' }}>SHARE</span>
-      {links.map(l => (
-        <a key={l.label}
-           href={l.href} target="_blank" rel="noopener noreferrer"
-           aria-label={`Share on ${l.label}`}
-           title={`Share on ${l.label}`}
-           style={{
-             width: 30, height: 30,
-             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-             background: l.bg, color: '#fff', borderRadius: '50%',
-             textDecoration: 'none',
-           }}>{l.icon}</a>
-      ))}
-      <button type="button" onClick={copy}
-        aria-label="Copy link" title={copied ? 'Copied!' : 'Copy link'}
-        style={{
-          width: 30, height: 30, background: copied ? 'var(--green, #06a77d)' : 'var(--ink)',
-          color: 'var(--cream)', border: 0, borderRadius: '50%',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        }}>{copied ? <CheckIcon /> : <LinkIcon />}</button>
-    </div>
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="moan-icon-btn"
+        aria-label="Share this moan"
+        title="Share"
+      >
+        <ShareIcon />
+      </button>
+      {open && !hasNativeShare && (
+        <div role="menu" style={{
+          position: 'absolute', bottom: '100%', right: 0, marginBottom: 6,
+          background: 'var(--paper)', border: '2px solid var(--ink)',
+          boxShadow: '3px 3px 0 var(--ink)',
+          padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
+          minWidth: 140, zIndex: 10,
+          fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.05em',
+        }}>
+          {links.map(l => (
+            <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer"
+               style={{ padding: '6px 10px', color: 'var(--ink)', textDecoration: 'none' }}
+               onClick={() => setOpen(false)}>{l.label}</a>
+          ))}
+          <button type="button" onClick={copy}
+            style={{
+              padding: '6px 10px', textAlign: 'left',
+              background: copied ? 'var(--green, #06a77d)' : 'transparent',
+              color: copied ? 'var(--cream)' : 'var(--ink)',
+              border: 0, font: 'inherit', cursor: 'pointer',
+            }}>{copied ? 'Copied!' : 'Copy link'}</button>
+        </div>
+      )}
+    </span>
   );
 }
 
@@ -384,9 +357,9 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
         >
           {moan.reply_count > 0 ? 'OPEN THREAD →' : 'OPEN'}
         </button>
+        <ShareBar moan={moan} />
         <DeleteMoanButton moan={moan} />
       </div>
-      <ShareBar moan={moan} />
     </article>
   );
 }

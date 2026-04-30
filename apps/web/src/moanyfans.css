@@ -362,17 +362,9 @@ body[data-dark="1"] {
   position: relative;
   box-shadow: 3px 3px 0 var(--ink);
 }
-.moan-card[data-kind="ROAST"] {
-  border-color: var(--red);
-  box-shadow: 4px 4px 0 var(--red);
-}
-.moan-tape {
-  position: absolute; top: -10px; left: 24px;
-  width: 80px; height: 22px;
-  background: rgba(255, 214, 10, 0.7);
-  transform: rotate(-2deg);
-  box-shadow: 1px 1px 4px rgba(0,0,0,0.1);
-}
+/* Kind border was hot-pink + colored shadow; toned to a thin red rule on ROAST only. */
+.moan-card[data-kind="ROAST"] { border-left: 4px solid var(--red); }
+.moan-tape { display: none; }
 
 .moan-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -1829,11 +1821,17 @@ body[data-dark="1"] {
   transform: translate(1px, 1px);
   box-shadow: 1px 1px 0 var(--ink);
 }
+.moan-icon-btn {
+  background: transparent; border: 0; cursor: pointer;
+  padding: 6px 8px; color: var(--ink); opacity: 0.55;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: auto;
+}
+.moan-icon-btn:hover { opacity: 1; }
 .moan-delete-btn {
   background: transparent; border: 0; cursor: pointer;
   padding: 6px 8px; color: var(--ink); opacity: 0.45;
   display: inline-flex; align-items: center; justify-content: center;
-  margin-left: auto;
 }
 .moan-delete-btn:hover { opacity: 1; color: var(--red); }
 .moan-delete-btn:disabled { cursor: wait; opacity: 0.3; }
