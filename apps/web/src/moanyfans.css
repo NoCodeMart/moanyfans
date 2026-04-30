@@ -355,9 +355,9 @@ body[data-dark="1"] {
 .moan-card {
   background: var(--paper);
   border: 2px solid var(--ink);
-  margin: 16px 0;
+  margin: 10px 0;
   position: relative;
-  box-shadow: 4px 4px 0 var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
 }
 .moan-card[data-kind="ROAST"] {
   border-color: var(--red);
@@ -373,13 +373,13 @@ body[data-dark="1"] {
 
 .moan-head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 14px 16px 10px;
+  padding: 10px 14px 8px;
   border-bottom: 1px dashed var(--rule);
 }
-.moan-head-l { display: flex; gap: 12px; align-items: center; }
-.moan-meta { display: flex; flex-direction: column; gap: 2px; }
+.moan-head-l { display: flex; gap: 10px; align-items: center; }
+.moan-meta { display: flex; flex-direction: column; gap: 1px; }
 .moan-handle {
-  font-family: var(--font-display); font-size: 18px;
+  font-family: var(--font-display); font-size: 15px;
   letter-spacing: 0.02em;
   display: flex; align-items: center; gap: 8px;
 }
@@ -395,15 +395,15 @@ body[data-dark="1"] {
 .moan-kind-stamp {
   font-family: var(--font-display);
   color: var(--cream);
-  padding: 6px 12px;
-  font-size: 14px;
+  padding: 4px 9px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   transform: rotate(3deg);
   border: 2px solid var(--ink);
   box-shadow: 2px 2px 0 var(--ink);
 }
 
-.moan-body { padding: 16px; }
+.moan-body { padding: 12px 14px; }
 .moan-text {
   margin: 0 0 12px;
   font-family: var(--font-body);
@@ -422,9 +422,9 @@ body[data-dark="1"] {
 .reaction {
   background: var(--cream); border: 0;
   border-right: 1px dashed var(--rule);
-  padding: 10px 8px;
-  display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono); font-size: 11px;
+  padding: 6px 6px;
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 10px;
   position: relative;
   letter-spacing: 0.05em;
   color: var(--ink);
@@ -437,9 +437,9 @@ body[data-dark="1"] {
   background: var(--rc); color: var(--cream);
 }
 .reaction-emoji {
-  width: 22px; height: 22px;
+  width: 18px; height: 18px;
   display: grid; place-items: center;
-  font-size: 18px; line-height: 1;
+  font-size: 15px; line-height: 1;
   font-family: 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji', sans-serif;
 }
 .reaction-label { font-weight: 700; }
@@ -1153,18 +1153,19 @@ body[data-dark="1"] {
   .headline { font-size: 40px !important; line-height: 0.95; }
   .moan-tape { display: none; }
 
-  .moan-card { box-shadow: 2px 2px 0 var(--ink); }
-  .moan-head { flex-wrap: wrap; gap: 6px; padding: 12px 12px 8px; }
+  .moan-card { box-shadow: 2px 2px 0 var(--ink); margin: 8px 0; }
+  .moan-head { flex-wrap: wrap; gap: 6px; padding: 8px 12px 6px; }
   .moan-head-l { gap: 8px; }
-  .moan-handle { font-size: 15px; }
-  .moan-kind-stamp { font-size: 11px; padding: 4px 8px; transform: rotate(2deg); }
-  .moan-body { padding: 12px; }
-  .moan-text { font-size: 16px; }
+  .moan-handle { font-size: 13px; }
+  .moan-kind-stamp { font-size: 9px; padding: 3px 6px; transform: rotate(2deg); }
+  .moan-body { padding: 10px 12px; }
+  .moan-text { font-size: 14px !important; line-height: 1.35; }
 
   .reactions { grid-template-columns: repeat(4, 1fr); }
-  .reaction { padding: 10px 4px; font-size: 10px; gap: 4px; }
-  .reaction-emoji { width: 18px; height: 18px; font-size: 16px; }
+  .reaction { padding: 6px 2px; font-size: 9px; gap: 3px; }
+  .reaction-emoji { width: 16px; height: 16px; font-size: 13px; }
   .reaction-label { display: none; }
+  .reaction-count { margin-left: 2px; }
 
   .composer-inline-text { font-size: 16px; }
   .composer-inline-cta { font-size: 13px; padding: 6px 10px; }
@@ -1791,7 +1792,7 @@ body[data-dark="1"] {
 /* ═══ MOAN REPLY ROW ═══ */
 .moan-reply-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-top: 1px dashed var(--rule, #c7bfa9);
 }
 .moan-reply-btn {

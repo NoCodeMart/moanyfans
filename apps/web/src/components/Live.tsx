@@ -274,7 +274,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
             onClick={() => (onOpenUser ?? defaultOpenUser)(moan.user.handle)}
             style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
             aria-label={`Open @${moan.user.handle}`}>
-            <UserAvatar user={moan.user} size={44} />
+            <UserAvatar user={moan.user} size={36} />
           </button>
           <div className="moan-meta">
             <div className="moan-handle">
@@ -319,8 +319,8 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
         <p className="moan-text"
            onClick={openSelf}
            style={{
-             fontSize: moan.rage_level > 7 ? 26 : moan.rage_level > 4 ? 22 : 18,
-             fontWeight: moan.rage_level > 6 ? 800 : 600,
+             fontSize: moan.rage_level > 7 ? 19 : moan.rage_level > 4 ? 17 : 15,
+             fontWeight: moan.rage_level > 6 ? 700 : 500,
              cursor: 'pointer',
            }}>
           {moan.text}
@@ -333,7 +333,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
             style={{
               display: 'block', marginTop: 12,
               border: '2px solid var(--ink)',
-              maxWidth: 540, background: 'var(--ink)',
+              maxWidth: 460, background: 'var(--ink)',
               overflow: 'hidden',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -344,7 +344,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
               loading="lazy"
               style={{
                 display: 'block',
-                width: '100%', maxHeight: 480,
+                width: '100%', maxHeight: 360,
                 objectFit: 'contain',
                 background: 'var(--ink)',
               }}
