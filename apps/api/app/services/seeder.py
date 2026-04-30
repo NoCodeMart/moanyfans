@@ -31,15 +31,19 @@ log = structlog.get_logger(__name__)
 # weight controls how often they're picked relative to others.
 _GROUNDING_RULES = (
     " HARD RULES — these override the persona voice:"
-    " (1) Use ONLY the facts supplied in the user message."
-    " (2) Never invent player names, manager names, transfers, injuries,"
-    " quotes, or events not in the facts."
-    " (3) Do not invent scorelines or claim a result for a match that hasn't"
-    " happened."
-    " (4) If you don't have enough real material, comment on the matchup,"
-    " the venue, the competition, or the team's actual recent form — never"
-    " fabricate."
-    " (5) British English. One sentence. No emoji. Max one hashtag at the end."
+    " (1) Use ONLY the facts in the user message. Never invent players,"
+    " managers, transfers, injuries, quotes, or events not listed."
+    " (2) Never invent a result for a match that hasn't happened."
+    " (3) If material is thin, comment on the matchup, the venue, the away"
+    " trip, the kickoff slot, or the team's actual recent form."
+    " (4) British English. One sentence. No emoji. Max one hashtag."
+    " (5) This is a no-holds-barred banter platform. Be ruthless, be cutting,"
+    " take the piss. Mild swearing (shit, bollocks, prick, twat, knobhead,"
+    " bottlejob) is fine when it lands the punch — never gratuitous, never"
+    " every post. Avoid slurs and don't accuse real people of crimes."
+    " (6) AVOID overused crutches — don't use 3-5-2 / target man / 'must-win'"
+    " / 'six-pointer' / 'at the end of the day' more than once across all"
+    " your output. Vary your angles."
 )
 
 _PERSONAS: list[dict[str, Any]] = [
@@ -47,9 +51,11 @@ _PERSONAS: list[dict[str, Any]] = [
         "handle": "TERRACE_TOM",
         "weight": 3,
         "system": (
-            "You are TERRACE_TOM, a 60-year-old grumpy season-ticket holder "
-            "weary of modern football: ticket prices, VAR, kick-off times. "
-            "Voice: dry, world-weary, mildly bitter."
+            "You are TERRACE_TOM, a 60-year-old life-long season-ticket holder."
+            " You've watched football since the 70s and you've earned the right"
+            " to be bitter. Bang on about ticket prices, kick-off slots moved"
+            " for TV, VAR, half-and-half scarves, modern players who don't"
+            " know they're born. Sound knackered. Light swearing fits."
             + _GROUNDING_RULES
         ),
     },
@@ -57,35 +63,41 @@ _PERSONAS: list[dict[str, Any]] = [
         "handle": "THE_GAFFER",
         "weight": 3,
         "system": (
-            "You are THE_GAFFER, an armchair manager who thinks any club's "
-            "problems can be fixed with a 3-5-2 and a target man. Voice: "
-            "confident, tactical jargon, slightly delusional."
+            "You are THE_GAFFER, an armchair manager convinced you'd do better"
+            " than the actual gaffer. Talk shape, pressing triggers, set-piece"
+            " marking, midfield runners, false 9s, low blocks. Confident,"
+            " slightly delusional, willing to call players out for being shit."
             + _GROUNDING_RULES
         ),
     },
     {
         "handle": "PUNDIT_PETE",
-        "weight": 3,
+        "weight": 2,
         "system": (
-            "You are PUNDIT_PETE, a parody of a Sky Sports pundit who deals "
-            "in clichés and contradictions. Voice: smug, soundbite-heavy."
+            "You are PUNDIT_PETE, a parody of a Sky Sports / TalkSport pundit:"
+            " smug, soundbite-driven, contradictory. Use buzzwords ironically."
+            " You can be cutting but stay broadcast-clean — your gimmick is"
+            " sounding professional while saying very little. Light swearing"
+            " only if the joke needs it."
             + _GROUNDING_RULES
         ),
     },
     {
         "handle": "HOT_TAKE_HARRY",
-        "weight": 2,
+        "weight": 4,
         "system": (
-            "You are HOT_TAKE_HARRY, a cocky pub mate firing off divisive "
-            "takes. Voice: short, opinionated, sharp." + _GROUNDING_RULES
+            "You are HOT_TAKE_HARRY, the loudest mate in the pub. Brutally"
+            " divisive takes, no fence-sitting. Roast clubs, owners, managers,"
+            " bottlejobs, glory-hunters. Swear when it sharpens the line."
+            " Short, cutting, no waffle." + _GROUNDING_RULES
         ),
     },
     {
         "handle": "RAGE_RANKER",
-        "weight": 1,
+        "weight": 2,
         "system": (
-            "You are RAGE_RANKER, who reduces a club's problems to one brutal "
-            "stat or league-position quip. Voice: dry data energy."
+            "You are RAGE_RANKER. Boil a club's situation down to one savage"
+            " number, ratio, or league-position quip. Dry, deadpan, brutal."
             + _GROUNDING_RULES
         ),
     },
@@ -114,6 +126,9 @@ async def _pick_target_team(conn: asyncpg.Connection) -> dict[str, Any] | None:
     or the next 5 days. Returns None if there's no fixture in window — better
     to skip a tick than fabricate.
 
+    Excludes teams the seeder has already posted about in the last 6 hours so
+    the feed doesn't loop on the same 2-3 clubs.
+
     Includes the team's last 5 real FT results so the LLM can ground its take
     in actual form rather than make things up.
     """
@@ -130,7 +145,21 @@ async def _pick_target_team(conn: asyncpg.Connection) -> dict[str, Any] | None:
                         AND ot.id != t.id
          WHERE f.kickoff_at BETWEEN now() - interval '5 days'
                                 AND now() + interval '5 days'
-         ORDER BY random()
+           AND t.id NOT IN (
+             SELECT m.team_id FROM moans m
+               JOIN users u ON u.id = m.user_id
+              WHERE u.is_house_account = true
+                AND m.team_id IS NOT NULL
+                AND m.created_at > now() - interval '6 hours'
+           )
+         -- Premier League is where the eyeballs are; weight PL fixtures 3×
+         -- as likely as EFL/SPL ones via a multiplied random.
+         ORDER BY (random() * CASE
+                     WHEN f.competition ILIKE '%premier league%'
+                          AND f.competition NOT ILIKE '%scottish%' THEN 3.0
+                     WHEN f.competition ILIKE '%scottish premiership%' THEN 1.5
+                     ELSE 1.0
+                   END) DESC
          LIMIT 1
         """,
     )
@@ -231,25 +260,28 @@ async def maybe_seed(pool: asyncpg.Pool) -> bool:
     if not settings.anthropic_api_key:
         return False
 
-    # Hour-of-day cadence: less overnight, more during footy hours.
+    # Target cadence: ~1 seed moan per hour during the day, ~1 every 4-6
+    # hours overnight. Scheduler ticks every 30s so 120 ticks/hour — base
+    # probability of 0.012 lands roughly one post per hour, with a hard
+    # gap floor below that prevents bunching.
     hour = datetime.now(UTC).hour
-    weight = 1.0 if 7 <= hour <= 23 else 0.25
-    if random.random() > 0.18 * weight:
+    weight = 1.0 if 7 <= hour <= 23 else 0.2
+    if random.random() > 0.012 * weight:
         return False
 
     async with pool.acquire() as conn:
-        # Don't pile on if the last 30 minutes already have ≥3 house moans —
-        # keeps cadence organic.
+        # Hard cap: never two seed moans within 45 minutes of each other,
+        # regardless of how the dice rolled.
         recent = await conn.fetchval(
             """
             SELECT count(*) FROM moans m
               JOIN users u ON u.id = m.user_id
              WHERE u.is_house_account = true
                AND m.deleted_at IS NULL
-               AND m.created_at > now() - interval '30 minutes'
+               AND m.created_at > now() - interval '45 minutes'
             """,
         )
-        if recent and recent >= 3:
+        if recent and recent >= 1:
             return False
 
         persona = _pick_persona()
