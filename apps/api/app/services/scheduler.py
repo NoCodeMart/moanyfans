@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 import asyncpg
 import structlog
 
-from . import house_ai, push
+from . import house_ai, push, seeder
 
 log = structlog.get_logger(__name__)
 
@@ -79,6 +79,12 @@ async def run(pool: asyncpg.Pool) -> None:
                 await push.dispatch_pending(pool)
             except Exception:
                 log.exception("push_dispatch_failed")
+
+            # Cold-start content seeder — probabilistic per-tick post.
+            try:
+                await seeder.maybe_seed(pool)
+            except Exception:
+                log.exception("seeder_failed")
 
             # House AI sweep — every ~5 minutes catch any FT fixtures whose
             # hot take didn't fire during live polling (e.g. polling missed FT).
