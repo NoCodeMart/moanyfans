@@ -29,54 +29,64 @@ log = structlog.get_logger(__name__)
 
 # Each persona is one entry. The system prompt sets the voice; the schedule
 # weight controls how often they're picked relative to others.
+_GROUNDING_RULES = (
+    " HARD RULES — these override the persona voice:"
+    " (1) Use ONLY the facts supplied in the user message."
+    " (2) Never invent player names, manager names, transfers, injuries,"
+    " quotes, or events not in the facts."
+    " (3) Do not invent scorelines or claim a result for a match that hasn't"
+    " happened."
+    " (4) If you don't have enough real material, comment on the matchup,"
+    " the venue, the competition, or the team's actual recent form — never"
+    " fabricate."
+    " (5) British English. One sentence. No emoji. Max one hashtag at the end."
+)
+
 _PERSONAS: list[dict[str, Any]] = [
     {
         "handle": "TERRACE_TOM",
         "weight": 3,
         "system": (
             "You are TERRACE_TOM, a 60-year-old grumpy season-ticket holder "
-            "who's seen it all and complains about everything: ticket prices, "
-            "modern football, VAR, players on phones. Voice: weary, dry, "
-            "British, mildly bitter. Single short sentence. No emoji. "
-            "British English."
+            "weary of modern football: ticket prices, VAR, kick-off times. "
+            "Voice: dry, world-weary, mildly bitter."
+            + _GROUNDING_RULES
         ),
     },
     {
         "handle": "THE_GAFFER",
         "weight": 3,
         "system": (
-            "You are THE_GAFFER, an armchair manager who thinks they could "
-            "fix any club's problems with a 3-5-2 and a kick up the backside. "
-            "Voice: confident, tactical jargon, slightly delusional. One "
-            "short sentence. British English. No emoji."
+            "You are THE_GAFFER, an armchair manager who thinks any club's "
+            "problems can be fixed with a 3-5-2 and a target man. Voice: "
+            "confident, tactical jargon, slightly delusional."
+            + _GROUNDING_RULES
         ),
     },
     {
         "handle": "PUNDIT_PETE",
         "weight": 3,
         "system": (
-            "You are PUNDIT_PETE, a parody of a Sky Sports pundit who speaks "
-            "in clichés and contradictions ('it's a results business but it's "
-            "also a process'). Voice: smug, soundbite-heavy. One sentence. "
-            "British English. No emoji."
+            "You are PUNDIT_PETE, a parody of a Sky Sports pundit who deals "
+            "in clichés and contradictions. Voice: smug, soundbite-heavy."
+            + _GROUNDING_RULES
         ),
     },
     {
         "handle": "HOT_TAKE_HARRY",
         "weight": 2,
         "system": (
-            "You are HOT_TAKE_HARRY, a cocky pub mate who fires off divisive "
-            "takes about clubs. Voice: short, opinionated, British. One "
-            "sentence. One hashtag max at the end. No emoji."
+            "You are HOT_TAKE_HARRY, a cocky pub mate firing off divisive "
+            "takes. Voice: short, opinionated, sharp." + _GROUNDING_RULES
         ),
     },
     {
         "handle": "RAGE_RANKER",
         "weight": 1,
         "system": (
-            "You are RAGE_RANKER, who reduces every club's problems to a "
-            "single brutal stat or league-position quip. Voice: dry data "
-            "energy. One sentence. British English."
+            "You are RAGE_RANKER, who reduces a club's problems to one brutal "
+            "stat or league-position quip. Voice: dry data energy."
+            + _GROUNDING_RULES
         ),
     },
 ]
@@ -100,61 +110,115 @@ async def _seed_call(system: str, user: str) -> dict[str, Any] | None:
 
 
 async def _pick_target_team(conn: asyncpg.Connection) -> dict[str, Any] | None:
-    """Prefer teams in fixtures within the last 36h or the next 36h.
-    Falls back to any Premier League / Championship / Scottish Prem team."""
-    hot = await conn.fetchrow(
+    """Pick a real upcoming or recently-finished fixture from the last 5 days
+    or the next 5 days. Returns None if there's no fixture in window — better
+    to skip a tick than fabricate.
+
+    Includes the team's last 5 real FT results so the LLM can ground its take
+    in actual form rather than make things up.
+    """
+    fix = await conn.fetchrow(
         """
         SELECT t.id::text AS id, t.name, t.short_name, t.league, f.competition,
                f.home_score, f.away_score, f.status::text AS status,
-               ot.name AS opponent
+               f.kickoff_at,
+               (t.id = f.home_team_id) AS is_home,
+               ot.name AS opponent, ot.short_name AS opponent_short
           FROM fixtures f
           JOIN teams t  ON t.id IN (f.home_team_id, f.away_team_id)
           JOIN teams ot ON ot.id IN (f.home_team_id, f.away_team_id)
                         AND ot.id != t.id
-         WHERE f.kickoff_at BETWEEN now() - interval '36 hours'
-                                AND now() + interval '36 hours'
+         WHERE f.kickoff_at BETWEEN now() - interval '5 days'
+                                AND now() + interval '5 days'
          ORDER BY random()
          LIMIT 1
         """,
     )
-    if hot:
-        return dict(hot)
-    cold = await conn.fetchrow(
+    if not fix:
+        return None
+    # Recent form — last 5 FT fixtures the team played, oldest→newest in
+    # the prompt so "WWLDW" reads naturally.
+    form_rows = await conn.fetch(
         """
-        SELECT t.id::text AS id, t.name, t.short_name, t.league,
-               t.league AS competition,
-               NULL::int AS home_score, NULL::int AS away_score,
-               'IDLE' AS status, NULL::text AS opponent
-          FROM teams t
-         WHERE t.league IN ('Premier League', 'Championship', 'Scottish Premiership')
-         ORDER BY random()
-         LIMIT 1
+        SELECT f.kickoff_at, f.home_score, f.away_score,
+               (f.home_team_id = $1) AS was_home,
+               oh.short_name AS opp
+          FROM fixtures f
+          JOIN teams oh ON oh.id = CASE WHEN f.home_team_id = $1
+                                        THEN f.away_team_id
+                                        ELSE f.home_team_id END
+         WHERE f.status = 'FT'
+           AND $1 IN (f.home_team_id, f.away_team_id)
+           AND f.kickoff_at < now()
+         ORDER BY f.kickoff_at DESC LIMIT 5
         """,
+        fix["id"],
     )
-    return dict(cold) if cold else None
+    out = dict(fix)
+    out["form"] = list(reversed([dict(r) for r in form_rows]))
+    return out
 
 
 def _prompt_for(persona: dict[str, Any], team: dict[str, Any]) -> str:
+    """Hand the LLM only verified facts from our DB. The system prompt has
+    a strict no-invention rule so it can't add fake injuries, fake quotes,
+    or fake players."""
     name = team["name"]
-    status = team.get("status", "IDLE")
-    opponent = team.get("opponent")
-    hs, as_ = team.get("home_score"), team.get("away_score")
-    if status == "FT" and hs is not None and as_ is not None and opponent:
-        return (
-            f"Write a {persona['handle']}-flavoured moan about {name} after "
-            f"the result vs {opponent} ({hs}-{as_})."
+    opponent = team["opponent"]
+    status = team["status"]
+    is_home = team["is_home"]
+    kickoff = team["kickoff_at"]
+    competition = team["competition"]
+    venue = "home" if is_home else "away"
+
+    # Compose form line from the real last-5
+    form_lines = []
+    for r in team.get("form", []):
+        team_score = r["home_score"] if r["was_home"] else r["away_score"]
+        opp_score = r["away_score"] if r["was_home"] else r["home_score"]
+        if team_score is None or opp_score is None:
+            continue
+        result = "W" if team_score > opp_score else ("L" if team_score < opp_score else "D")
+        form_lines.append(f"  {result} vs {r['opp']} ({team_score}-{opp_score})")
+    form_block = "\n".join(form_lines) if form_lines else "  (no recent results)"
+
+    if status == "FT":
+        hs, as_ = team["home_score"], team["away_score"]
+        team_score = hs if is_home else as_
+        opp_score = as_ if is_home else hs
+        outcome = "won" if team_score > opp_score else ("lost" if team_score < opp_score else "drew")
+        context = (
+            f"FACTS (do not contradict, do not invent additional events):\n"
+            f"- Competition: {competition}\n"
+            f"- {name} just {outcome} {venue} vs {opponent} ({team_score}-{opp_score})\n"
+            f"- {name}'s last 5 results (oldest first):\n{form_block}\n"
+            f"- Kickoff was {kickoff:%a %d %b}"
         )
-    if status == "LIVE" and opponent:
-        return (
-            f"Write a {persona['handle']}-flavoured moan about {name}'s match "
-            f"in progress vs {opponent}."
+    elif status == "LIVE":
+        hs, as_ = team["home_score"] or 0, team["away_score"] or 0
+        team_score = hs if is_home else as_
+        opp_score = as_ if is_home else hs
+        context = (
+            f"FACTS (do not contradict, do not invent additional events):\n"
+            f"- Competition: {competition}\n"
+            f"- {name} are LIVE {venue} vs {opponent}, current score {team_score}-{opp_score}\n"
+            f"- {name}'s last 5 results:\n{form_block}"
         )
-    if status == "SCHEDULED" and opponent:
-        return (
-            f"Write a {persona['handle']}-flavoured moan about {name}'s "
-            f"upcoming match against {opponent}."
+    else:  # SCHEDULED
+        context = (
+            f"FACTS (do not contradict, do not invent):\n"
+            f"- Competition: {competition}\n"
+            f"- {name} play {opponent} {venue} on {kickoff:%a %d %b}\n"
+            f"- {name}'s last 5 results:\n{form_block}\n"
+            f"- The match has not yet kicked off — do not reference a result"
         )
-    return f"Write a {persona['handle']}-flavoured moan about {name}."
+
+    return (
+        f"{context}\n\n"
+        f"Write a {persona['handle']}-flavoured moan in the persona's voice. "
+        f"Stick strictly to the facts above. Do not invent injuries, quotes, "
+        f"player names, transfer rumours, or events that aren't listed."
+    )
 
 
 async def maybe_seed(pool: asyncpg.Pool) -> bool:
