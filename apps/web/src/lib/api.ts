@@ -255,6 +255,7 @@ export type ThreadItem = {
   agrees: number | null;
   cope: number | null;
   ratio: number | null;
+  your_reaction: ReactionKind | null;
   is_house: boolean | null;
 };
 

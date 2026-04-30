@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { Side } from '../lib/api';
-import { useCreateMoan, useFixture, useFixtureThread } from '../lib/hooks';
+import type { ReactionKind, Side } from '../lib/api';
+import { useCreateMoan, useFixture, useFixtureThread, useReact } from '../lib/hooks';
 
 const SIDE_COLORS: Record<Side, string> = {
   HOME: 'var(--blue)',
@@ -310,16 +310,50 @@ function ThreadRow({
                           padding: '1px 5px', letterSpacing: '0.1em' }}>{sideLabel}</span>
         </div>
         <div style={{ fontSize: 14, lineHeight: 1.4 }}>{item.text}</div>
-        {(item.laughs || item.agrees || item.cope || item.ratio) ? (
-          <div style={{ display: 'flex', gap: 12, marginTop: 6,
-                         fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.6 }}>
-            {!!item.laughs && <span>😂 {item.laughs}</span>}
-            {!!item.agrees && <span>💯 {item.agrees}</span>}
-            {!!item.cope && <span>🤡 {item.cope}</span>}
-            {!!item.ratio && <span>🧂 {item.ratio}</span>}
-          </div>
-        ) : null}
+        {item.moan_id && <ThreadReactBar item={item} />}
       </div>
+    </div>
+  );
+}
+
+type ThreadMoan = import("../lib/api").ThreadItem;
+
+const REACTION_LIST: { key: ReactionKind; emoji: string; label: string }[] = [
+  { key: "laughs", emoji: "😂", label: "HA" },
+  { key: "agrees", emoji: "💯", label: "TRUE" },
+  { key: "cope",   emoji: "🤡", label: "CLOWN" },
+  { key: "ratio",  emoji: "🧂", label: "SEETHE" },
+];
+
+function ThreadReactBar({ item }: { item: ThreadMoan }) {
+  const react = useReact(item.moan_id!);
+  return (
+    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+      {REACTION_LIST.map(r => {
+        const count = (item[r.key] ?? 0) as number;
+        const active = item.your_reaction === r.key;
+        return (
+          <button
+            key={r.key}
+            type="button"
+            disabled={react.isPending}
+            onClick={() => react.mutate(active ? null : r.key)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "3px 8px",
+              fontFamily: "var(--font-mono)", fontSize: 11,
+              border: "1px solid " + (active ? "var(--ink)" : "rgba(10,9,8,0.2)"),
+              background: active ? "var(--ink)" : "var(--paper)",
+              color: active ? "var(--cream)" : "var(--ink)",
+              cursor: react.isPending ? "wait" : "pointer",
+            }}
+            title={r.label}
+          >
+            <span>{r.emoji}</span>
+            <span>{count}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

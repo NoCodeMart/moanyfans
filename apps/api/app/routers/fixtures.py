@@ -211,11 +211,13 @@ class ThreadItem(BaseModel):
     agrees: int | None = None
     cope: int | None = None
     ratio: int | None = None
+    your_reaction: str | None = None
     is_house: bool | None = None
 
 
 @router.get("/{fixture_id}/thread", response_model=list[ThreadItem])
 async def get_thread(fixture_id: str, request: Request,
+                     user: Annotated[CurrentUser, Depends(get_current_user)],
                      side: str | None = Query(default=None,
                          description="HOME | AWAY | NEUTRAL — filter user moans only"),
                      limit_moans: int = Query(default=200, ge=1, le=500)) -> list[ThreadItem]:
@@ -229,11 +231,17 @@ async def get_thread(fixture_id: str, request: Request,
     moan_sql = (
         "SELECT m.id::text AS moan_id, m.text, m.kind, m.side, m.match_minute,"
         "       m.created_at, m.laughs, m.agrees, m.cope, m.ratio,"
-        "       u.handle, u.avatar_seed, u.is_house_account "
+        "       u.handle, u.avatar_seed, u.is_house_account, "
+        "       (SELECT kind FROM reactions r "
+        "          WHERE r.moan_id = m.id AND r.user_id = $2 LIMIT 1) AS your_reaction "
         "  FROM moans m JOIN users u ON u.id = m.user_id "
         " WHERE m.fixture_id = $1 AND m.deleted_at IS NULL AND m.status = 'PUBLISHED'"
+        "   AND m.user_id NOT IN ("
+        "     SELECT blocker_id FROM user_blocks WHERE blocked_id = $2"
+        "     UNION"
+        "     SELECT blocked_id FROM user_blocks WHERE blocker_id = $2)"
     )
-    args: list = [fixture_id]
+    args: list = [fixture_id, user.id]
     if side and side.upper() in ("HOME", "AWAY", "NEUTRAL"):
         args.append(side.upper())
         moan_sql += f" AND m.side = ${len(args)}"
@@ -269,6 +277,7 @@ async def get_thread(fixture_id: str, request: Request,
             side=r["side"],
             laughs=r["laughs"], agrees=r["agrees"],
             cope=r["cope"], ratio=r["ratio"],
+            your_reaction=r["your_reaction"],
             is_house=r["is_house_account"],
         ))
     items.sort(key=lambda it: (it.minute, it.created_at), reverse=True)

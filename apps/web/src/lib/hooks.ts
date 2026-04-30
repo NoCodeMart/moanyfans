@@ -79,7 +79,11 @@ export function useReact(moanId: string) {
     onError: (_err, _kind, ctx) => {
       ctx?.updates.forEach(({ key, previous }) => qc.setQueryData(key, previous));
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['feed'] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['feed'] });
+      qc.invalidateQueries({ queryKey: ['fixture-thread'] });
+      qc.invalidateQueries({ queryKey: ['moan'] });
+    },
   });
 }
 
