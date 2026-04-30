@@ -46,7 +46,14 @@ const TICKER_ITEMS = [
   "LEEDS fans file 47th promotion-cycle moan of the season",
 ];
 
-const FILTERS = ['ALL', 'FOLLOWING', 'MOAN', 'ROAST', 'COPE', 'BANTER'];
+const FILTERS: { key: string; label: string }[] = [
+  { key: 'ALL',       label: 'ALL' },
+  { key: 'FOLLOWING', label: '👥 FOLLOWING' },
+  { key: 'MOAN',      label: '😤 MOAN' },
+  { key: 'ROAST',     label: '🔥 ROAST' },
+  { key: 'COPE',      label: '🤡 COPE' },
+  { key: 'BANTER',    label: '😂 BANTER' },
+];
 const PALETTE_KEYS = Object.keys(PALETTES) as (keyof typeof PALETTES)[];
 
 function readMoanIdFromUrl(): string | null {
@@ -404,21 +411,21 @@ export default function App() {
             <div style={{ display: 'flex', gap: 4, padding: '12px 0', flexWrap: 'wrap' }}>
               {FILTERS.map(f => (
                 <button
-                  key={f}
+                  key={f.key}
                   type="button"
-                  onClick={() => setFilter(f)}
+                  onClick={() => setFilter(f.key)}
                   style={{
                     fontFamily: 'var(--font-display)',
                     fontSize: 14,
                     letterSpacing: '0.05em',
                     padding: '6px 12px',
                     border: '2px solid var(--ink)',
-                    background: filter === f ? 'var(--ink)' : 'var(--paper)',
-                    color: filter === f ? 'var(--cream)' : 'var(--ink)',
+                    background: filter === f.key ? 'var(--ink)' : 'var(--paper)',
+                    color: filter === f.key ? 'var(--cream)' : 'var(--ink)',
                     cursor: 'pointer',
                   }}
                 >
-                  {f}
+                  {f.label}
                 </button>
               ))}
             </div>
