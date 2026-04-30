@@ -1,7 +1,13 @@
+import mimetypes
+
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+# python-slim ships an incomplete mime map — without this, StaticFiles serves
+# our user-uploaded webp images as text/plain and browsers refuse to render them.
+mimetypes.add_type("image/webp", ".webp")
 
 from .config import get_settings
 from .db import lifespan
