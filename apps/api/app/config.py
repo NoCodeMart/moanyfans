@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     groq_api_key: str | None = None
     log_level: str = "INFO"
 
+    # Seeder engagement — house personas reacting/replying to real users.
+    # Hard caps in the engagement module keep the LLM bill bounded.
+    seeder_engagement: bool = Field(default=True)
+    engage_max_replies_per_persona_per_day: int = Field(default=5)
+    engage_min_reactions_to_engage: int = Field(default=3)
+
     # Public URLs for share/OG meta + redirects
     web_public_base: str = Field(default="https://moanyfans.77-68-52-69.sslip.io")
     api_public_base: str = Field(default="https://api.moanyfans.77-68-52-69.sslip.io")

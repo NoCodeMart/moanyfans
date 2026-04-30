@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 import asyncpg
 import structlog
 
-from . import house_ai, push, seeder
+from . import engagement, house_ai, push, seeder
 
 log = structlog.get_logger(__name__)
 
@@ -85,6 +85,17 @@ async def run(pool: asyncpg.Pool) -> None:
                 await seeder.maybe_seed(pool)
             except Exception:
                 log.exception("seeder_failed")
+
+            # House persona engagement with real users (reactions + replies).
+            # All hard-capped inside the module; safe to call every tick.
+            try:
+                await engagement.maybe_react(pool)
+            except Exception:
+                log.exception("engage_react_failed")
+            try:
+                await engagement.maybe_reply(pool)
+            except Exception:
+                log.exception("engage_reply_failed")
 
             # House AI sweep — every ~5 minutes catch any FT fixtures whose
             # hot take didn't fire during live polling (e.g. polling missed FT).
