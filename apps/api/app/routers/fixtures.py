@@ -239,7 +239,9 @@ async def get_thread(fixture_id: str, request: Request,
         "   AND m.user_id NOT IN ("
         "     SELECT blocker_id FROM user_blocks WHERE blocked_id = $2"
         "     UNION"
-        "     SELECT blocked_id FROM user_blocks WHERE blocker_id = $2)"
+        "     SELECT blocked_id FROM user_blocks WHERE blocker_id = $2"
+        "     UNION"
+        "     SELECT muted_id FROM user_mutes WHERE muter_id = $2)"
     )
     args: list = [fixture_id, user.id]
     if side and side.upper() in ("HOME", "AWAY", "NEUTRAL"):

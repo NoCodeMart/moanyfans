@@ -201,7 +201,9 @@ async def list_feed(
         " AND m.user_id NOT IN ("
         "   SELECT blocker_id FROM user_blocks WHERE blocked_id = $1"
         "   UNION"
-        "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)"
+        "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1"
+        "   UNION"
+        "   SELECT muted_id FROM user_mutes WHERE muter_id = $1)"
     )
     args: list = [user.id]
     if team:
@@ -252,7 +254,9 @@ async def get_moan(
             " AND m.user_id NOT IN ("
             "   SELECT blocker_id FROM user_blocks WHERE blocked_id = $1"
             "   UNION"
-            "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)",
+            "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1"
+            "   UNION"
+            "   SELECT muted_id FROM user_mutes WHERE muter_id = $1)",
             user.id,
             moan_id,
         )
@@ -275,7 +279,9 @@ async def list_replies(
             " AND m.user_id NOT IN ("
             "   SELECT blocker_id FROM user_blocks WHERE blocked_id = $1"
             "   UNION"
-            "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)"
+            "   SELECT blocked_id FROM user_blocks WHERE blocker_id = $1"
+            "   UNION"
+            "   SELECT muted_id FROM user_mutes WHERE muter_id = $1)"
             " ORDER BY m.created_at ASC",
             user.id,
             moan_id,

@@ -5,6 +5,35 @@ import { useFollow, useUser, useUserMoans } from '../lib/hooks';
 import { MoanCard } from './Live';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+function MuteToggle({ handle, muted }: { handle: string; muted: boolean }) {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: () => muted ? api.unmuteUser(handle) : api.muteUser(handle),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['user', handle] });
+      qc.invalidateQueries({ queryKey: ['feed'] });
+    },
+  });
+  return (
+    <button
+      type="button"
+      onClick={() => m.mutate()}
+      disabled={m.isPending}
+      title={muted ? 'Unmute' : 'Hide their moans from your feed'}
+      style={{
+        background: muted ? 'var(--ink)' : 'var(--paper)',
+        color: muted ? 'var(--cream)' : 'var(--ink)',
+        border: '2px solid var(--ink)',
+        padding: '8px 14px', cursor: 'pointer',
+        fontFamily: 'var(--font-display)', fontSize: 13,
+        letterSpacing: '0.05em', borderRadius: 999,
+      }}
+    >
+      {m.isPending ? '…' : muted ? 'UNMUTE' : 'MUTE'}
+    </button>
+  );
+}
+
 function BlockToggle({ handle, blocked }: { handle: string; blocked: boolean }) {
   const qc = useQueryClient();
   const m = useMutation({
@@ -158,6 +187,9 @@ export function UserProfileView({
               >
                 {follow.isPending ? '…' : data.you_follow ? 'FOLLOWING ✓' : 'FOLLOW +'}
               </button>
+            )}
+            {!data.you_blocked && (
+              <MuteToggle handle={handle} muted={data.you_muted} />
             )}
             <BlockToggle handle={handle} blocked={data.you_blocked} />
           </div>

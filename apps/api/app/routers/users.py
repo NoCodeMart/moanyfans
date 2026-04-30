@@ -31,6 +31,7 @@ class PublicUser(BaseModel):
     follows_you: bool = False
     you_blocked: bool = False
     blocked_you: bool = False
+    you_muted: bool = False
     created_at: str | None = None
 
 
@@ -59,6 +60,7 @@ async def _load_public(
         follows_you = False
         you_blocked = False
         blocked_you = False
+        you_muted = False
         if viewer_id and viewer_id != row["id"]:
             you_follow = bool(await conn.fetchval(
                 "SELECT 1 FROM follows WHERE follower_id = $1 AND followed_id = $2",
@@ -76,6 +78,10 @@ async def _load_public(
                 "SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2",
                 row["id"], viewer_id,
             ))
+            you_muted = bool(await conn.fetchval(
+                "SELECT 1 FROM user_mutes WHERE muter_id = $1 AND muted_id = $2",
+                viewer_id, row["id"],
+            ))
     return PublicUser(
         id=row["id"], handle=row["handle"],
         avatar_seed=row["avatar_seed"], avatar_style=row["avatar_style"],
@@ -88,6 +94,7 @@ async def _load_public(
         moan_count=row["moan_count"],
         you_follow=you_follow, follows_you=follows_you,
         you_blocked=you_blocked, blocked_you=blocked_you,
+        you_muted=you_muted,
         created_at=row["created_at"].isoformat() if row["created_at"] else None,
     )
 
@@ -161,6 +168,50 @@ class FollowListItem(BaseModel):
     team_primary: str | None = None
     bio: str | None = None
     you_follow: bool = False
+
+
+@router.post("/{handle}/mute", response_model=PublicUser, status_code=status.HTTP_201_CREATED)
+async def mute(
+    handle: str, request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> PublicUser:
+    limit_user(user, action="mute", limit=60, window_s=60)
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        target_id = await conn.fetchval(
+            "SELECT id FROM users WHERE lower(handle) = lower($1) AND deleted_at IS NULL",
+            handle,
+        )
+        if not target_id:
+            raise HTTPException(404, "User not found")
+        if str(target_id) == user.id:
+            raise HTTPException(400, "You cannot mute yourself")
+        await conn.execute(
+            "INSERT INTO user_mutes (muter_id, muted_id) VALUES ($1, $2) "
+            "ON CONFLICT DO NOTHING",
+            user.id, target_id,
+        )
+    return await _load_public(pool, handle, user.id)
+
+
+@router.delete("/{handle}/mute", response_model=PublicUser)
+async def unmute(
+    handle: str, request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> PublicUser:
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        target_id = await conn.fetchval(
+            "SELECT id FROM users WHERE lower(handle) = lower($1) AND deleted_at IS NULL",
+            handle,
+        )
+        if not target_id:
+            raise HTTPException(404, "User not found")
+        await conn.execute(
+            "DELETE FROM user_mutes WHERE muter_id = $1 AND muted_id = $2",
+            user.id, target_id,
+        )
+    return await _load_public(pool, handle, user.id)
 
 
 @router.post("/{handle}/block", response_model=PublicUser, status_code=status.HTTP_201_CREATED)

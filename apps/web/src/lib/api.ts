@@ -59,6 +59,7 @@ export type PublicUser = {
   follows_you: boolean;
   you_blocked: boolean;
   blocked_you: boolean;
+  you_muted: boolean;
   created_at: string | null;
 };
 
@@ -307,6 +308,10 @@ export const api = {
     request<PublicUser>(`/users/${encodeURIComponent(handle)}/block`, { method: 'POST' }),
   unblockUser: (handle: string) =>
     request<PublicUser>(`/users/${encodeURIComponent(handle)}/block`, { method: 'DELETE' }),
+  muteUser: (handle: string) =>
+    request<PublicUser>(`/users/${encodeURIComponent(handle)}/mute`, { method: 'POST' }),
+  unmuteUser: (handle: string) =>
+    request<PublicUser>(`/users/${encodeURIComponent(handle)}/mute`, { method: 'DELETE' }),
   followingFeed: (limit = 50) =>
     request<Moan[]>(`/moans?following=true&limit=${limit}`),
   tagMoans: (slug: string, limit = 50) =>
