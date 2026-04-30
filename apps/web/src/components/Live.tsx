@@ -276,6 +276,15 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
                          background: 'transparent', border: 0, padding: 0, cursor: 'pointer',
                          font: 'inherit', color: 'inherit', letterSpacing: 'inherit',
                        }}>@{moan.user.handle}</button>
+              {moan.user.is_house_account && (
+                <span title="AI conversation starter — not a real fan"
+                      style={{
+                        fontSize: 9, padding: '2px 6px',
+                        fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+                        background: 'var(--ink)', color: 'var(--cream)',
+                        border: '1px solid var(--ink)',
+                      }}>AI</span>
+              )}
               {moan.team && (
                 <button type="button"
                   onClick={() => (onOpenTeam ?? defaultOpenTeam)(moan.team!.slug)}

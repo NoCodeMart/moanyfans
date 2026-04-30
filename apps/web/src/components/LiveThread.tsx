@@ -301,9 +301,10 @@ function ThreadRow({
           <span style={{ fontFamily: 'var(--font-display)', fontSize: 13,
                           color: sideColour }}>@{item.user_handle}</span>
           {item.is_house && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+            <span title="AI conversation starter — not a real fan"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
                             background: 'var(--ink)', color: 'var(--cream)',
-                            padding: '1px 5px', letterSpacing: '0.1em' }}>HOUSE</span>
+                            padding: '1px 5px', letterSpacing: '0.1em' }}>AI</span>
           )}
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
                           background: sideColour, color: 'var(--cream)',

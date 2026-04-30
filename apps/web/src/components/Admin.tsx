@@ -217,7 +217,7 @@ function UserRow({ u, action }: {
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 16 }}>
           @{u.handle}
           {u.is_admin && <span style={tag('var(--red)')}>ADMIN</span>}
-          {u.is_house && <span style={tag('var(--ink)')}>HOUSE</span>}
+          {u.is_house && <span style={tag('var(--ink)')}>AI</span>}
           {u.deleted && <span style={tag('#888')}>BANNED</span>}
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.65 }}>

@@ -140,12 +140,13 @@ export function UserProfileView({
           <div className="profile-handle">
             @{data?.handle ?? handle}
             {data?.is_house_account && (
-              <span style={{
+              <span title="AI conversation starter — not a real fan"
+                    style={{
                 marginLeft: 8, padding: '2px 6px',
                 background: 'var(--ink)', color: 'var(--cream)',
                 fontFamily: 'var(--font-mono)', fontSize: 10,
                 letterSpacing: '0.1em',
-              }}>HOUSE</span>
+              }}>AI</span>
             )}
             {data?.follows_you && !isMe && (
               <span style={{

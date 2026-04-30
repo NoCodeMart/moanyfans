@@ -39,6 +39,7 @@ class UserRef(BaseModel):
     avatar_seed: str | None = None
     avatar_style: str | None = None
     team_id: str | None = None
+    is_house_account: bool = False
 
 
 class MoanOut(BaseModel):
@@ -98,6 +99,7 @@ SELECT
   u.handle                            AS user_handle,
   u.avatar_seed                       AS user_avatar_seed,
   u.avatar_style                      AS user_avatar_style,
+  u.is_house_account                  AS user_is_house,
   u.team_id::text                     AS user_team_id,
   t.id::text                          AS team_id,
   t.slug                              AS team_slug,
@@ -108,6 +110,7 @@ SELECT
   tu.handle                           AS target_handle,
   tu.avatar_seed                      AS target_avatar_seed,
   tu.avatar_style                     AS target_avatar_style,
+  tu.is_house_account                 AS target_is_house,
   tu.team_id::text                    AS target_team_id,
   COALESCE(
     (SELECT array_agg(tg.slug) FROM moan_tags mt
@@ -143,6 +146,7 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
             avatar_seed=row["target_avatar_seed"],
             avatar_style=row["target_avatar_style"],
             team_id=row["target_team_id"],
+            is_house_account=row["target_is_house"] or False,
         )
     return MoanOut(
         id=row["id"],
@@ -152,6 +156,7 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
             avatar_seed=row["user_avatar_seed"],
             avatar_style=row["user_avatar_style"],
             team_id=row["user_team_id"],
+            is_house_account=row["user_is_house"] or False,
         ),
         team=team,
         target_user=target,

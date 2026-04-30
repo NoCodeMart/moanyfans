@@ -111,6 +111,7 @@ export type UserRef = {
   avatar_seed: string | null;
   avatar_style: string | null;
   team_id: string | null;
+  is_house_account: boolean;
 };
 
 export type TeamRef = {
