@@ -374,6 +374,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
           {moan.reply_count > 0 ? 'OPEN THREAD →' : 'OPEN'}
         </button>
         <ShareBar moan={moan} />
+        <ReportMoanButton moan={moan} />
         <DeleteMoanButton moan={moan} />
       </div>
     </article>
@@ -549,6 +550,48 @@ export function Composer({ open, onClose, replyTo }: {
     </div>
   );
 }
+
+function ReportMoanButton({ moan }: { moan: Moan }) {
+  const { user } = useCurrentUser();
+  const report = useMutation({
+    mutationFn: (reason: string) => api.reportMoan(moan.id, reason),
+  });
+  // Don't let people report their own moans (or while signed-out).
+  if (!user || user.handle === moan.user.handle) return null;
+  if (report.isSuccess) {
+    return (
+      <span className="moan-icon-btn" title="Reported"
+            style={{ color: 'var(--green, #06a77d)' }}>
+        <FlagIcon />
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="moan-icon-btn"
+      onClick={() => {
+        const reason = window.prompt(
+          `Report @${moan.user.handle}'s moan. Why? (e.g. spam, abuse, misinformation)`,
+        );
+        if (reason && reason.trim().length >= 2) report.mutate(reason.trim());
+      }}
+      disabled={report.isPending}
+      aria-label="Report this moan"
+      title="Report"
+    >
+      {report.isPending ? '…' : <FlagIcon />}
+    </button>
+  );
+}
+
+const FlagIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 22V4" />
+    <path d="M4 4h11l-1 4 4 0v8H6l-2 0" />
+  </svg>
+);
 
 function DeleteMoanButton({ moan }: { moan: Moan }) {
   const { user } = useCurrentUser();
