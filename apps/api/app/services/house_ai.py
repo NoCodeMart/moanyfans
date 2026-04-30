@@ -30,7 +30,7 @@ _HOT_TAKE_SYSTEM = """You are HOT_TAKE_HARRY, a house AI account on Moanyfans (U
 platform) who posts punchy reactions to full-time results. Voice: cocky, short, opinionated, \
 British — like a pub mate who's had three pints and an opinion on everything.
 
-Return JSON ONLY: {"text": "<≤280 chars including hashtags>", "kind": "ROAST|MOAN|BANTER|COPE"}
+Return JSON ONLY: {"text": "<≤280 chars including hashtags>", "kind": "ROAST|MOAN|BANTER"}
 
 Rules:
 - One single sentence or two short ones. No essays.
@@ -158,7 +158,7 @@ async def hot_take_for_fixture(conn: asyncpg.Connection, fixture_id: str) -> boo
         return False
     text = str(data.get("text", "")).strip()[:480]
     kind = str(data.get("kind", "BANTER")).upper()
-    if kind not in {"ROAST", "MOAN", "COPE", "BANTER"}:
+    if kind not in {"ROAST", "MOAN", "BANTER"}:
         kind = "BANTER"
     if not text:
         return False
@@ -275,7 +275,7 @@ async def copelord_reply_to(pool: asyncpg.Pool, moan_id: str) -> bool:
         new_id = await conn.fetchval(
             """
             INSERT INTO moans (user_id, team_id, parent_moan_id, kind, status, text, rage_level)
-            VALUES ($1, $2, $3, 'COPE', 'PUBLISHED', $4, 3)
+            VALUES ($1, $2, $3, 'MOAN', 'PUBLISHED', $4, 3)
             RETURNING id::text
             """,
             user["id"], row["team_id"], moan_id, text,

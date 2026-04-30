@@ -22,7 +22,7 @@ export function useTeam(slug: string | undefined) {
 
 type FeedFilters = {
   team?: string;
-  kind?: 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
+  kind?: 'MOAN' | 'ROAST' | 'BANTER';
   sport?: string;
   league?: string;
   following?: boolean;

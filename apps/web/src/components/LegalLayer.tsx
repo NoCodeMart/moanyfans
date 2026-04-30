@@ -274,7 +274,7 @@ const LEGAL_CONTENT: Record<NonNullable<LegalView>, { title: string; body: React
         <ul style={{ paddingLeft: 18 }}>
           <li>Sharp opinions on clubs, owners, managers, pundits.</li>
           <li>Roasting other supporters' takes.</li>
-          <li>Hyperbole, sarcasm, gallows humour, COPE.</li>
+          <li>Hyperbole, sarcasm, gallows humour.</li>
         </ul>
 
         <SectionTitle>Not tolerated</SectionTitle>

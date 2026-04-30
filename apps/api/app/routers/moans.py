@@ -20,7 +20,7 @@ _COPE_REPLY_PROBABILITY = 0.30
 
 router = APIRouter(prefix="/moans", tags=["moans"])
 
-MoanKind = Literal["MOAN", "ROAST", "COPE", "BANTER"]
+MoanKind = Literal["MOAN", "ROAST", "BANTER"]
 ReactionKind = Literal["laughs", "agrees", "cope", "ratio"]
 MoanStatus = Literal["PUBLISHED", "HELD", "REJECTED", "REMOVED"]
 

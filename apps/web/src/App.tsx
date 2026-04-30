@@ -41,7 +41,7 @@ const TICKER_ITEMS = [
   "TRENDING #BOEHLYOUT · Chelsea fans queue round the block to file moans",
   "RAGE_RANKER weekly top 3: 1) United · 2) Chelsea · 3) Tottenham (Spursy)",
   "TRENDING #TROPHYDROUGHT — Spurs fan ratios Arsenal supporter so hard he changes club",
-  "COPELORD_BOT auto-replies to every Liverpool fan, server load nominal",
+  "HOUSE BOT auto-replies to every Liverpool fan, server load nominal",
   "OLD FIRM banter: Celtic fans roast Rangers' Viaplay Cup celebration",
   "LEEDS fans file 47th promotion-cycle moan of the season",
 ];
@@ -51,7 +51,6 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'FOLLOWING', label: '👥 FOLLOWING' },
   { key: 'MOAN',      label: '😤 MOAN' },
   { key: 'ROAST',     label: '🔥 ROAST' },
-  { key: 'COPE',      label: '🤡 COPE' },
   { key: 'BANTER',    label: '😂 BANTER' },
 ];
 const PALETTE_KEYS = Object.keys(PALETTES) as (keyof typeof PALETTES)[];

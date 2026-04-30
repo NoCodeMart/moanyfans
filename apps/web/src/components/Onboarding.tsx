@@ -301,7 +301,7 @@ function StepDone({ handle }: { handle: string }) {
                      fontFamily: 'var(--font-body)', fontSize: 15 }}>
         <li>Tap a fixture under <b>LIVE MOAN-ALONG</b> to join the live thread.</li>
         <li>Roast a rival from any moan card.</li>
-        <li>Reactions: HA / AGR / COPE / RATIO. Use them aggressively.</li>
+        <li>Reactions: 😂 HA / 💯 TRUE / 🤡 CLOWN / 🧂 SEETHE. Use them aggressively.</li>
       </ul>
     </Body>
   );

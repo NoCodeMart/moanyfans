@@ -96,7 +96,6 @@ async def moan_permalink(moan_id: str, request: Request) -> Response:
     kind_label = {
         "MOAN": "MOAN",
         "ROAST": "ROAST",
-        "COPE": "COPE",
         "BANTER": "BANTER",
     }.get(row["kind"], "MOAN")
     title = f"@{row['user_handle']} · {kind_label} · {title_team} | Moanyfans"

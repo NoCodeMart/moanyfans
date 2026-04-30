@@ -288,7 +288,7 @@ _RIVALRY_HTML = """<!DOCTYPE html>
 <div class="wrap">
   <h1>{a_name} vs {b_name}</h1>
   <div class="meta">{a_city} ({a_league}) vs {b_city} ({b_league})</div>
-  <p>The Moanyfans rivalry feed: every roast, moan, COPE and ratio between these two
+  <p>The Moanyfans rivalry feed: every roast, moan and ratio between these two
   fan bases, in one place. Tap in, pick a side, give the other lot what they deserve.</p>
   <h2>Recent moans</h2>
   <ul>{moan_html}</ul>

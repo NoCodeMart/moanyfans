@@ -1,7 +1,7 @@
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
 export type ReactionKind = 'laughs' | 'agrees' | 'cope' | 'ratio';
-export type MoanKind = 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
+export type MoanKind = 'MOAN' | 'ROAST' | 'BANTER';
 export type MoanStatus = 'PUBLISHED' | 'HELD' | 'REJECTED' | 'REMOVED';
 
 export type CurrentUser = {

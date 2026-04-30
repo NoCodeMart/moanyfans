@@ -363,7 +363,6 @@ body[data-dark="1"] {
   border-color: var(--red);
   box-shadow: 4px 4px 0 var(--red);
 }
-.moan-card[data-kind="COPE"] { border-color: var(--blue); box-shadow: 4px 4px 0 var(--blue); }
 .moan-tape {
   position: absolute; top: -10px; left: 24px;
   width: 80px; height: 22px;

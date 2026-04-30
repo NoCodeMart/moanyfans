@@ -146,7 +146,6 @@ def render_moan_card(
     # Kind stamp — top right corner overlap (rotated rectangle)
     kind_color = {
         "ROAST": (230, 57, 70),
-        "COPE":  (58, 134, 255),
         "BANTER": (255, 190, 11),
         "MOAN": INK,
     }.get(kind, INK)

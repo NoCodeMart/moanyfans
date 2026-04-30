@@ -296,8 +296,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
   onReply?: (target: { moanId: string; handle: string }) => void;
 }) {
   const kindColor =
-    moan.kind === 'ROAST' ? 'var(--red)' :
-    moan.kind === 'COPE' ? 'var(--blue)' : 'var(--ink)';
+    moan.kind === 'ROAST' ? 'var(--red)' : 'var(--ink)';
 
   const openSelf = () => {
     if (onOpen) onOpen(moan.id);
@@ -469,7 +468,7 @@ export function MoanDetail({ moanId, onBack, onReply, onOpenUser, onOpenTeam, on
 
 // ── Feed ────────────────────────────────────────────────────────────────────
 
-type FeedFilter = 'ALL' | 'FOLLOWING' | 'MOAN' | 'ROAST' | 'COPE' | 'BANTER';
+type FeedFilter = 'ALL' | 'FOLLOWING' | 'MOAN' | 'ROAST' | 'BANTER';
 const SPORTS_AVAILABLE = ['football'] as const;
 
 export function Feed({
@@ -483,12 +482,12 @@ export function Feed({
   onReply?: (target: { moanId: string; handle: string }) => void;
 }) {
   const upperFilter = filter.toUpperCase() as FeedFilter;
-  const isKindFilter = ['MOAN', 'ROAST', 'COPE', 'BANTER'].includes(upperFilter);
+  const isKindFilter = ['MOAN', 'ROAST', 'BANTER'].includes(upperFilter);
   const isSportFilter = (SPORTS_AVAILABLE as readonly string[]).includes(filter);
 
   const isFollowingFilter = upperFilter === 'FOLLOWING';
   const { data: moans, isLoading, isError, error } = useFeed({
-    kind: isKindFilter ? (upperFilter as 'MOAN' | 'ROAST' | 'COPE' | 'BANTER') : undefined,
+    kind: isKindFilter ? (upperFilter as 'MOAN' | 'ROAST' | 'BANTER') : undefined,
     sport: isSportFilter ? filter : undefined,
     following: isFollowingFilter || undefined,
   });
@@ -539,10 +538,9 @@ export function Feed({
 
 // ── Composer modal (POST to API) ────────────────────────────────────────────
 
-const KINDS: { key: 'MOAN' | 'ROAST' | 'COPE' | 'BANTER'; placeholder: string }[] = [
+const KINDS: { key: 'MOAN' | 'ROAST' | 'BANTER'; placeholder: string }[] = [
   { key: 'MOAN',   placeholder: 'GET IT ALL OFF YOUR CHEST. EVERY GRIEVANCE.' },
   { key: 'ROAST',  placeholder: 'PUT THEM ON BLAST. NO HOLDS BARRED.' },
-  { key: 'COPE',   placeholder: 'TELL US THE LIE THAT GETS YOU THROUGH THE NIGHT.' },
   { key: 'BANTER', placeholder: "DROP THE BANTER. MAKE THEM LAUGH. MAKE THEM CRY." },
 ];
 
@@ -580,7 +578,7 @@ function ComposerForm({
   const { user } = useCurrentUser();
   const { data: teams = [] } = useTeams();
   const create = useCreateMoan();
-  const [kind, setKind] = useState<'MOAN' | 'ROAST' | 'COPE' | 'BANTER'>('MOAN');
+  const [kind, setKind] = useState<'MOAN' | 'ROAST' | 'BANTER'>('MOAN');
   const [teamSlug, setTeamSlug] = useState<string>(() => user?.team_slug ?? '');
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
