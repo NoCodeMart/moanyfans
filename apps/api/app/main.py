@@ -13,7 +13,7 @@ from .config import get_settings
 from .db import lifespan
 from .routers import (
     admin, battles, fixtures, health, me, media, moans, notifications, push, search, seo, share,
-    tags, teams, users,
+    tags, teams, users, waitlist,
 )
 from .services.media import MEDIA_DIR
 
@@ -68,6 +68,7 @@ app.include_router(search.router)
 app.include_router(media.router)
 app.include_router(push.router)
 app.include_router(admin.router)
+app.include_router(waitlist.router)
 
 # Serve uploaded images. The directory lives outside the source tree (Docker volume)
 # so deploys don't blow user content away.

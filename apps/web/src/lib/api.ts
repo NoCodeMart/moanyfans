@@ -294,6 +294,12 @@ export type AdminUserRow = {
   created_at: string;
 };
 
+export type WaitlistRow = {
+  email: string;
+  source: string | null;
+  created_at: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -361,6 +367,14 @@ export const api = {
   adminUserAction: (handle: string, action: 'ban' | 'unban' | 'make_admin' | 'remove_admin') =>
     request<{ status: string }>(`/admin/users/${encodeURIComponent(handle)}/action`, {
       method: 'POST', body: JSON.stringify({ action }),
+    }),
+  adminWaitlist: (limit = 500) =>
+    request<WaitlistRow[]>(`/admin/waitlist?limit=${limit}`),
+  adminWaitlistCount: () => request<{ count: number }>('/admin/waitlist/count'),
+  adminWaitlistCsvUrl: () => `${API_URL}/admin/waitlist.csv`,
+  joinWaitlist: (email: string, source = 'coming-soon') =>
+    request<{ status: string }>('/waitlist', {
+      method: 'POST', body: JSON.stringify({ email, source }),
     }),
   followingFeed: (limit = 50) =>
     request<Moan[]>(`/moans?following=true&limit=${limit}`),

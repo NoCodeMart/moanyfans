@@ -1,9 +1,9 @@
 import { useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type AdminUserRow, type ReportRow } from '../lib/api';
+import { api, type AdminUserRow, type ReportRow, type WaitlistRow } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 
-type Tab = 'overview' | 'reports' | 'users';
+type Tab = 'overview' | 'reports' | 'users' | 'waitlist';
 
 export function AdminPage() {
   const { user, loading } = useCurrentUser();
@@ -24,7 +24,7 @@ export function AdminPage() {
         ADMIN CONSOLE
       </h1>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
-        {(['overview', 'reports', 'users'] as Tab[]).map(t => (
+        {(['overview', 'reports', 'users', 'waitlist'] as Tab[]).map(t => (
           <button key={t} type="button" onClick={() => setTab(t)} style={pillStyle(tab === t)}>
             {t.toUpperCase()}
           </button>
@@ -33,6 +33,62 @@ export function AdminPage() {
       {tab === 'overview' && <Overview />}
       {tab === 'reports' && <Reports />}
       {tab === 'users' && <Users />}
+      {tab === 'waitlist' && <Waitlist />}
+    </div>
+  );
+}
+
+function Waitlist() {
+  const list = useQuery({
+    queryKey: ['admin', 'waitlist'],
+    queryFn: () => api.adminWaitlist(500),
+  });
+  const count = useQuery({
+    queryKey: ['admin', 'waitlist-count'],
+    queryFn: api.adminWaitlistCount,
+    refetchInterval: 30_000,
+  });
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{
+          background: 'var(--paper)', border: '2px solid var(--ink)',
+          padding: '10px 16px', boxShadow: '3px 3px 0 var(--ink)',
+        }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
+                        letterSpacing: '0.1em', opacity: 0.7 }}>SIGNUPS</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, lineHeight: 1 }}>
+            {(count.data?.count ?? 0).toLocaleString()}
+          </div>
+        </div>
+        <a href={api.adminWaitlistCsvUrl()} download
+           style={{ ...btn('var(--ink)', 'var(--cream)'), textDecoration: 'none' }}>
+          DOWNLOAD CSV
+        </a>
+      </div>
+      {list.isLoading && <div>Loading…</div>}
+      {!list.isLoading && (list.data?.length ?? 0) === 0 && (
+        <div style={{ padding: 24, opacity: 0.6, fontFamily: 'var(--font-mono)' }}>
+          No signups yet.
+        </div>
+      )}
+      {(list.data ?? []).map((r: WaitlistRow) => (
+        <div key={r.email} style={{
+          background: 'var(--paper)', border: '2px solid var(--ink)',
+          padding: '10px 14px', marginBottom: 6,
+          display: 'flex', gap: 12, alignItems: 'center',
+        }}>
+          <div style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 13 }}>{r.email}</div>
+          {r.source && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.6 }}>
+              {r.source}
+            </div>
+          )}
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.6 }}>
+            {new Date(r.created_at).toLocaleString('en-GB')}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

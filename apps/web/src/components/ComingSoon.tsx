@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { api } from '../lib/api';
 import { Wordmark } from './Brand';
 
 const STORAGE_KEY = 'moanyfans:waitlist';
@@ -7,20 +8,29 @@ export function ComingSoon() {
   const [email, setEmail] = useState('');
   const [done, setDone] = useState<boolean>(() => !!localStorage.getItem(STORAGE_KEY));
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { document.title = 'MOANYFANS — coming soon'; }, []);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     const trimmed = email.trim();
-    if (!/.+@.+\..+/.test(trimmed)) return;
+    if (!/.+@.+\..+/.test(trimmed)) {
+      setError('That email looks off.');
+      return;
+    }
     setBusy(true);
-    // Park locally for now — real waitlist endpoint is post-launch work.
-    const list = JSON.parse(localStorage.getItem('moanyfans:waitlist:emails') ?? '[]');
-    if (!list.includes(trimmed)) list.push(trimmed);
-    localStorage.setItem('moanyfans:waitlist:emails', JSON.stringify(list));
-    localStorage.setItem(STORAGE_KEY, trimmed);
-    setTimeout(() => { setDone(true); setBusy(false); }, 250);
+    try {
+      await api.joinWaitlist(trimmed, 'coming-soon');
+      localStorage.setItem(STORAGE_KEY, trimmed);
+      setDone(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong.';
+      setError(msg.includes('429') ? 'Too many tries — give it a few minutes.' : msg);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -44,19 +54,27 @@ export function ComingSoon() {
             </div>
           </div>
         ) : (
-          <form onSubmit={submit} style={form}>
-            <input
-              type="email"
-              required
-              placeholder="your@email.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={input}
-            />
-            <button type="submit" disabled={busy} style={btn}>
-              {busy ? '…' : 'GET EARLY ACCESS'}
-            </button>
-          </form>
+          <>
+            <form onSubmit={submit} style={form}>
+              <input
+                type="email"
+                required
+                placeholder="your@email.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                style={input}
+              />
+              <button type="submit" disabled={busy} style={btn}>
+                {busy ? '…' : 'GET EARLY ACCESS'}
+              </button>
+            </form>
+            {error && (
+              <div style={{ marginTop: 10, fontFamily: 'var(--font-mono)',
+                            fontSize: 12, color: 'var(--red, #e63946)' }}>
+                {error}
+              </div>
+            )}
+          </>
         )}
 
         <div style={footer}>
