@@ -708,8 +708,8 @@ async def set_rumour_status(
         if info["kind"] != "RUMOUR":
             raise HTTPException(400, "Not a rumour.")
         await conn.execute(
-            "UPDATE moans SET rumour_status = $1, "
-            "rumour_resolved_at = CASE WHEN $1 IS NULL THEN NULL ELSE now() END "
+            "UPDATE moans SET rumour_status = $1::text, "
+            "rumour_resolved_at = CASE WHEN $1::text IS NULL THEN NULL ELSE now() END "
             "WHERE id = $2",
             body.status, moan_id,
         )

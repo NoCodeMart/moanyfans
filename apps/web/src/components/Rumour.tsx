@@ -129,7 +129,11 @@ export function RumourBanner({ moan }: { moan: Moan }) {
         </span>
       )}
       {moan.rumour_fee && (
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+        <span style={{
+          padding: '4px 10px', background: 'var(--ink)', color: 'var(--cream)',
+          fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700,
+          letterSpacing: '0.02em',
+        }}>
           💷 {moan.rumour_fee}
         </span>
       )}
