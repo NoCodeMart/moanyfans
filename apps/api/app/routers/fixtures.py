@@ -175,7 +175,7 @@ async def add_event(
     With auth disabled (dev), the guest user can post too — useful for
     manual scripting / testing.
     """
-    if request.app.state.auth_enforced and not (user.is_admin or user.is_house_account):
+    if not (user.is_admin or user.is_house_account):
         raise HTTPException(403, "Only admins or house accounts can post live events")
     pool = request.app.state.pool
     async with pool.acquire() as conn:

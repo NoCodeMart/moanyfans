@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from ..auth import CurrentUser, get_current_user
+from ..config import get_settings
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -19,6 +20,10 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def require_admin(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> CurrentUser:
+    # Refuse all admin traffic while auth is disabled — every request shares
+    # one user in that mode, so any admin grant would be world-callable.
+    if not get_settings().auth_enabled:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin disabled while auth is off.")
     if not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin only.")
     return user

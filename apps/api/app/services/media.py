@@ -103,6 +103,13 @@ async def store_upload(file: UploadFile) -> StoredMedia:
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Image rejected — explicit or unsafe content is not allowed.",
         )
+    if verdict == "UNAVAILABLE":
+        # Fail closed — never publish unmoderated content.
+        log.warning("image_upload_moderation_unavailable")
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Image moderation is temporarily unavailable. Please try again in a minute.",
+        )
 
     file_id = uuid.uuid4().hex
     shard = file_id[:2]

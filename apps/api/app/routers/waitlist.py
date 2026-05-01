@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr
 
 from ..auth import CurrentUser
-from ..services.ratelimit import limit_ip
+from ..services.ratelimit import _client_ip, limit_ip
 from .admin import require_admin
 
 router = APIRouter(tags=["waitlist"])
@@ -34,8 +34,7 @@ async def join_waitlist(body: WaitlistJoinBody, request: Request) -> dict[str, s
     if not _EMAIL_RE.match(email) or len(email) > 254:
         raise HTTPException(400, "Invalid email.")
     email_lc = email.lower()
-    fwd = request.headers.get("x-forwarded-for", "")
-    ip = (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else None))
+    ip = _client_ip(request)
     ua = (request.headers.get("user-agent") or "")[:300]
     source = (body.source or "")[:60] or None
 

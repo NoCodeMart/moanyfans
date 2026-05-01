@@ -46,11 +46,13 @@ async def subscribe(
             INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
             VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (endpoint) DO UPDATE
-              SET user_id = EXCLUDED.user_id,
-                  p256dh  = EXCLUDED.p256dh,
+              SET p256dh  = EXCLUDED.p256dh,
                   auth    = EXCLUDED.auth,
                   user_agent = EXCLUDED.user_agent,
                   last_used_at = now()
+              -- Don't let one user hijack another user's existing endpoint;
+              -- only the original owner can re-register their subscription.
+              WHERE push_subscriptions.user_id = EXCLUDED.user_id
             """,
             user.id, body.endpoint, body.keys.p256dh, body.keys.auth, ua,
         )

@@ -47,6 +47,34 @@ app.add_middleware(
 )
 
 
+# CSRF mitigation — refuse state-changing requests whose Origin header isn't
+# in our allowlist. The CORS middleware blocks browser-initiated cross-origin
+# requests, but a cookie-bearing request from a malicious page submitted via
+# <form> bypasses CORS entirely. Origin-checking on the server-side closes
+# that gap.
+_ALLOWED_ORIGINS = set(settings.cors_origins)
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+@app.middleware("http")
+async def origin_guard(request: Request, call_next):
+    if request.method not in _SAFE_METHODS:
+        origin = request.headers.get("origin")
+        # Server-to-server / curl traffic has no Origin — let it through.
+        # Browser traffic always sends Origin on POST/PUT/DELETE/PATCH.
+        if origin and origin not in _ALLOWED_ORIGINS:
+            return JSONResponse(status_code=403,
+                                content={"detail": "Cross-origin request rejected"})
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault(
+        "Strict-Transport-Security", "max-age=31536000; includeSubDomains",
+    )
+    return response
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     log.exception("unhandled_error", path=request.url.path, method=request.method)

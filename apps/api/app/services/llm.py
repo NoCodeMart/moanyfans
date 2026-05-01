@@ -195,11 +195,11 @@ async def _anthropic_vision(b64_webp: str) -> str | None:
 
 
 async def classify_image(b64_webp: str) -> str:
-    """Returns 'SAFE', 'NSFW', or 'ILLEGAL'. Fails open to 'SAFE' if neither
-    provider can answer — the report flow is the backstop."""
+    """Returns 'SAFE', 'NSFW', 'ILLEGAL', or 'UNAVAILABLE' if neither provider
+    answered. Callers must fail closed on UNAVAILABLE — never publish."""
     for verdict in (await _groq_vision(b64_webp), await _anthropic_vision(b64_webp)):
         if verdict in {"SAFE", "NSFW", "ILLEGAL"}:
             return verdict
         if verdict:
             log.warning("image_moderation_unknown_verdict", verdict=verdict[:40])
-    return "SAFE"
+    return "UNAVAILABLE"

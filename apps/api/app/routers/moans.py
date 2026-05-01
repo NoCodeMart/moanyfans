@@ -405,6 +405,7 @@ async def react_to_moan(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> MoanOut:
     """Set/swap/remove your reaction. Triggers update denormalised counts."""
+    limit_user(user, action="react", limit=120, window_s=60)
     pool = request.app.state.pool
     async with pool.acquire() as conn, conn.transaction():
         # Block check: can't react on a moan if either side has blocked the other.
@@ -481,15 +482,25 @@ async def report_moan(
     request: Request,
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> dict[str, str]:
+    limit_user(user, action="report", limit=10, window_s=600)
     pool = request.app.state.pool
     async with pool.acquire() as conn:
+        # Dedupe — one report per (reporter, moan). Stops one user tripping
+        # the auto-hide threshold solo.
+        existing = await conn.fetchval(
+            "SELECT 1 FROM reports WHERE moan_id = $1 AND reporter_id = $2",
+            moan_id, user.id,
+        )
+        if existing:
+            return {"status": "already_reported"}
         await conn.execute(
             "INSERT INTO reports (moan_id, reporter_id, reason) VALUES ($1, $2, $3)",
             moan_id, user.id, body.reason,
         )
-        # Auto-hide after 3 reports
+        # Auto-hide after 3 distinct reporters.
         count = await conn.fetchval(
-            "SELECT count(*) FROM reports WHERE moan_id = $1 AND resolved = false",
+            "SELECT count(DISTINCT reporter_id) FROM reports "
+            "WHERE moan_id = $1 AND resolved = false",
             moan_id,
         )
         if count >= 3:
