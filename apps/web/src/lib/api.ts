@@ -6,7 +6,9 @@ export function mediaUrl(path: string | null | undefined): string | null {
 }
 
 export type ReactionKind = 'laughs' | 'agrees' | 'cope' | 'ratio';
-export type MoanKind = 'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR';
+export type MoanKind = 'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR' | 'POLL';
+
+export type PollOption = { label: string; votes: number };
 
 export type RumourTeam = {
   slug: string;
@@ -158,6 +160,10 @@ export type Moan = {
   rumour_fee?: string | null;
   rumour_source_url?: string | null;
   rumour_status?: string | null;
+  poll_options?: PollOption[] | null;
+  poll_total_votes?: number;
+  poll_closes_at?: string | null;
+  poll_your_choice?: number | null;
 };
 
 export type MediaUpload = {
@@ -259,6 +265,8 @@ export type CreateMoan = {
   rumour_to_slug?: string;
   rumour_fee?: string;
   rumour_source_url?: string;
+  poll_options?: string[];
+  poll_duration_hours?: number;
 };
 
 export type ThreadItem = {
@@ -558,6 +566,10 @@ export const api = {
     }
     return res.json() as Promise<MediaUpload>;
   },
+  votePoll: (moanId: string, choice_idx: number) =>
+    request<Moan>(`/moans/${moanId}/vote`, {
+      method: 'POST', body: JSON.stringify({ choice_idx }),
+    }),
   reactToMoan: (moanId: string, kind: ReactionKind | null) =>
     request<Moan>(`/moans/${moanId}/react`, {
       method: 'POST',

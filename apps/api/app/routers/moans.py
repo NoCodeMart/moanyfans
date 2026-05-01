@@ -79,6 +79,11 @@ class MoanOut(BaseModel):
     rumour_fee: str | None = None
     rumour_source_url: str | None = None
     rumour_status: str | None = None  # CONFIRMED | BUSTED | null (pending)
+    # Poll fields — populated only when kind == 'POLL'
+    poll_options: list[dict] | None = None  # [{label, votes}]
+    poll_total_votes: int = 0
+    poll_closes_at: str | None = None
+    poll_your_choice: int | None = None
 
 
 class CreateMoan(BaseModel):
@@ -100,6 +105,9 @@ class CreateMoan(BaseModel):
     rumour_to_slug: str | None = Field(default=None, max_length=40)
     rumour_fee: str | None = Field(default=None, max_length=60)
     rumour_source_url: str | None = Field(default=None, max_length=300)
+    # Poll structured fields (only used when kind == 'POLL')
+    poll_options: list[str] | None = Field(default=None, max_length=4)
+    poll_duration_hours: int | None = Field(default=None, ge=1, le=168)  # 1h–1wk
 
 
 class ReactionRequest(BaseModel):
@@ -149,7 +157,14 @@ SELECT
   rtt.slug          AS rumour_to_slug,
   rtt.name          AS rumour_to_name,
   rtt.short_name    AS rumour_to_short,
-  rtt.primary_color AS rumour_to_primary
+  rtt.primary_color AS rumour_to_primary,
+  m.poll_options    AS poll_options_raw,
+  m.poll_closes_at,
+  COALESCE((SELECT array_agg(choice_idx ORDER BY choice_idx)
+              FROM poll_votes WHERE moan_id = m.id),
+           ARRAY[]::smallint[])           AS poll_vote_indices,
+  (SELECT choice_idx FROM poll_votes WHERE moan_id = m.id AND user_id = $1
+     LIMIT 1)                              AS poll_your_choice
 FROM moans m
 JOIN users u           ON u.id = m.user_id
 LEFT JOIN teams t      ON t.id = m.team_id
@@ -223,7 +238,28 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
             short_name=row["rumour_to_short"],
             primary_color=row["rumour_to_primary"],
         ) if row.get("rumour_to_slug") else None),
+        poll_options=_build_poll_options(row),
+        poll_total_votes=len(row.get("poll_vote_indices") or []),
+        poll_closes_at=(row["poll_closes_at"].isoformat()
+                          if row.get("poll_closes_at") else None),
+        poll_your_choice=row.get("poll_your_choice"),
     )
+
+
+def _build_poll_options(row: asyncpg.Record) -> list[dict] | None:
+    """Combine the labels stored in moans.poll_options with the live vote
+    counts derived from poll_votes. Returns None for non-poll moans."""
+    raw = row.get("poll_options_raw")
+    if not raw:
+        return None
+    import json
+    labels = json.loads(raw) if isinstance(raw, str) else raw
+    indices = row.get("poll_vote_indices") or []
+    counts = [0] * len(labels)
+    for i in indices:
+        if 0 <= i < len(labels):
+            counts[i] += 1
+    return [{"label": labels[i], "votes": counts[i]} for i in range(len(labels))]
 
 
 @router.get("", response_model=list[MoanOut])
@@ -423,9 +459,13 @@ async def create_moan(
               text, rage_level, moderation_score, moderation_reason,
               fixture_id, match_minute, side,
               media_path, media_w, media_h, media_mime,
-              rumour_player, rumour_from_team, rumour_to_team, rumour_fee, rumour_source_url)
+              rumour_player, rumour_from_team, rumour_to_team, rumour_fee, rumour_source_url,
+              poll_options, poll_closes_at)
             VALUES ($1, $2, $3, $4, $5, $6::moan_status, $7, $8, $9, $10, $11, $12, $13,
-              $14, $15, $16, $17, $18, $19, $20, $21, $22)
+              $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::jsonb,
+              CASE WHEN $24::int IS NOT NULL
+                   THEN now() + ($24 || ' hours')::interval
+                   ELSE NULL END)
             RETURNING id::text
             """,
             user.id, team_id, target_id, body.parent_moan_id, body.kind, new_status,
@@ -434,6 +474,10 @@ async def create_moan(
             body.media_path, body.media_w, body.media_h, body.media_mime,
             body.rumour_player, rumour_from_id, rumour_to_id,
             body.rumour_fee, body.rumour_source_url,
+            (None if body.kind != "POLL" or not body.poll_options
+                  else __import__("json").dumps([s.strip()[:60] for s in body.poll_options
+                                                  if s.strip()][:4])),
+            body.poll_duration_hours if body.kind == "POLL" else None,
         )
         # Tags
         slugs = extract_tags(body.text)
@@ -539,6 +583,53 @@ async def delete_moan(
             moan_id,
         )
     return {"status": "deleted"}
+
+
+class PollVoteBody(BaseModel):
+    choice_idx: int = Field(ge=0, le=3)
+
+
+@router.post("/{moan_id}/vote", response_model=MoanOut)
+async def vote_on_poll(
+    moan_id: str, body: PollVoteBody, request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> MoanOut:
+    limit_user(user, action="poll_vote", limit=60, window_s=60)
+    pool = request.app.state.pool
+    async with pool.acquire() as conn, conn.transaction():
+        info = await conn.fetchrow(
+            "SELECT kind::text AS kind, poll_options, poll_closes_at, deleted_at "
+            "FROM moans WHERE id = $1", moan_id,
+        )
+        if not info or info["deleted_at"] is not None:
+            raise HTTPException(404, "Poll not found.")
+        if info["kind"] != "POLL" or not info["poll_options"]:
+            raise HTTPException(400, "Not a poll.")
+        if info["poll_closes_at"]:
+            from datetime import UTC, datetime
+            closes = info["poll_closes_at"]
+            if closes.tzinfo is None:
+                closes = closes.replace(tzinfo=UTC)
+            if closes < datetime.now(UTC):
+                raise HTTPException(400, "Poll closed.")
+        import json
+        labels = json.loads(info["poll_options"]) if isinstance(info["poll_options"], str) \
+                   else info["poll_options"]
+        if body.choice_idx >= len(labels):
+            raise HTTPException(400, "Invalid choice.")
+        # Vote is single-choice — flips on conflict so users can change mind.
+        await conn.execute(
+            """
+            INSERT INTO poll_votes (moan_id, user_id, choice_idx)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (moan_id, user_id) DO UPDATE SET choice_idx = EXCLUDED.choice_idx
+            """,
+            moan_id, user.id, body.choice_idx,
+        )
+        row = await conn.fetchrow(_FEED_SQL + " WHERE m.id = $2", user.id, moan_id)
+    if not row:
+        raise HTTPException(404, "Moan not found")
+    return _row_to_moan(row)
 
 
 @router.post("/{moan_id}/report", status_code=status.HTTP_201_CREATED)

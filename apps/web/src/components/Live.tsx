@@ -13,6 +13,7 @@ import {
 } from '../lib/hooks';
 import { TeamCrest } from './Crest';
 import { RumourBanner, RumourFields } from './Rumour';
+import { PollFields, PollWidget } from './Poll';
 import { currentSubscription, pushSupported, subscribePush, unsubscribePush } from '../lib/push';
 
 // Default handler when a MoanCard is rendered outside the App shell —
@@ -319,6 +320,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
 
       <div className="moan-body">
         {moan.kind === 'RUMOUR' && <RumourBanner moan={moan} />}
+        {moan.kind === 'POLL' && <PollWidget moan={moan} />}
         <p className="moan-text"
            onClick={openSelf}
            style={{
@@ -533,11 +535,12 @@ export function Feed({
 
 // ── Composer modal (POST to API) ────────────────────────────────────────────
 
-const KINDS: { key: 'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR'; placeholder: string }[] = [
+const KINDS: { key: 'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR' | 'POLL'; placeholder: string }[] = [
   { key: 'MOAN',   placeholder: 'GET IT ALL OFF YOUR CHEST. EVERY GRIEVANCE.' },
   { key: 'ROAST',  placeholder: 'PUT THEM ON BLAST. NO HOLDS BARRED.' },
   { key: 'BANTER', placeholder: "DROP THE BANTER. MAKE THEM LAUGH. MAKE THEM CRY." },
   { key: 'RUMOUR', placeholder: "DROP THE LATEST WORD ON THE GRAPEVINE. SOURCE IT IF YOU CAN." },
+  { key: 'POLL',   placeholder: "ASK THE QUESTION. LET THE TERRACE DECIDE." },
 ];
 
 export function Composer({ open, onClose, replyTo }: {
@@ -740,7 +743,7 @@ function ComposerForm({
   const { user } = useCurrentUser();
   const { data: teams = [] } = useTeams();
   const create = useCreateMoan();
-  const [kind, setKind] = useState<'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR'>('MOAN');
+  const [kind, setKind] = useState<'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR' | 'POLL'>('MOAN');
   const [teamSlug, setTeamSlug] = useState<string>(() => user?.team_slug ?? '');
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -753,6 +756,9 @@ function ComposerForm({
   const [rumourToSlug, setRumourToSlug] = useState('');
   const [rumourFee, setRumourFee] = useState('');
   const [rumourSourceUrl, setRumourSourceUrl] = useState('');
+  // Poll-only fields
+  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+  const [pollDurationHours, setPollDurationHours] = useState(24);
 
   useEffect(() => {
     if (!teamSlug && user?.team_slug) setTeamSlug(user.team_slug);
@@ -785,6 +791,10 @@ function ComposerForm({
           rumour_to_slug: rumourToSlug || undefined,
           rumour_fee: rumourFee.trim() || undefined,
           rumour_source_url: rumourSourceUrl.trim() || undefined,
+        } : {}),
+        ...(kind === 'POLL' ? {
+          poll_options: pollOptions.filter(o => o.trim()).slice(0, 4),
+          poll_duration_hours: pollDurationHours,
         } : {}),
       });
       if (replyTo) {
@@ -821,6 +831,12 @@ function ComposerForm({
               toSlug={rumourToSlug} setToSlug={setRumourToSlug}
               fee={rumourFee} setFee={setRumourFee}
               sourceUrl={rumourSourceUrl} setSourceUrl={setRumourSourceUrl}
+            />
+          )}
+          {expanded && kind === 'POLL' && (
+            <PollFields
+              options={pollOptions} setOptions={setPollOptions}
+              durationHours={pollDurationHours} setDurationHours={setPollDurationHours}
             />
           )}
           <textarea
