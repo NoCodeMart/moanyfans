@@ -28,11 +28,13 @@ _MODEL = "claude-haiku-4-5-20251001"
 _NO_NAMING_RULE = (
     "- HARD RULE: NEVER name specific managers, players, owners, or pundits "
     "by name. Your training data is older than today and you WILL get current "
-    "staff and squads wrong (e.g. naming a manager who left two years ago). "
-    "Use generic references only: 'the gaffer', 'the boss', 'the new manager', "
-    "'the owner', 'the centre-back', 'the new signing', 'the keeper'. "
-    "ABSOLUTE EXCEPTION: only name a person if their exact name appears in "
-    "the user-provided FACTS section."
+    "staff and squads wrong. ABSOLUTE EXCEPTION: only name a person if their "
+    "exact name appears in the user-provided FACTS section.\n"
+    "- DO NOT call for the manager's head, do not say 'gaffer's got to go', "
+    "'sack the manager', 'manager out', 'new gaffer needed' or similar — the "
+    "manager may already have been sacked or just appointed and you won't "
+    "know. Aim your venom at the players, the defending, the fans, the "
+    "owners' silence, the club's direction — never the manager's job security."
 )
 
 
@@ -137,8 +139,11 @@ Return JSON ONLY: {{"text": "<≤220 chars including hashtags>", "kind": "ROAST|
 Rules:
 - Single sentence (two short ones max). No essays. No emoji.
 - BRUTAL TONE — the conceding team's fans should be LIVID reading this. Pile on hard:
-  defensive shambles, manager out, sell the club, fans deserve better, downward spiral,
-  "remember when you were a proper club", relegation form, etc.
+  defensive shambles, players hiding, sell the club, fans deserve better, downward spiral,
+  "remember when you were a proper club", relegation form, ground half empty, etc.
+- VARIETY: each take in a single match must hit a DIFFERENT angle (defending vs midfield
+  vs fans vs owners vs history vs travelling support). Never recycle the same insult or
+  vocabulary you used in earlier takes for this fixture.
 - Strong language is encouraged where it sharpens the kick — fuck, fucking, wankers,
   shithouses, knobheads, pricks. Aim it like a knife, not a sprinkler.
 - One hashtag max, ending the post.
@@ -168,9 +173,8 @@ async def goal_take_for_fixture(
     row = await conn.fetchrow(
         """
         SELECT f.competition,
-               ht.short_name AS home_short, at.short_name AS away_short,
-               st.name AS scorer_name, st.short_name AS scorer_short,
-               ct.name AS conceder_name, ct.short_name AS conceder_short
+               ht.name AS home_name, at.name AS away_name,
+               st.name AS scorer_name, ct.name AS conceder_name
           FROM fixtures f
           JOIN teams ht ON ht.id = f.home_team_id
           JOIN teams at ON at.id = f.away_team_id
@@ -183,10 +187,28 @@ async def goal_take_for_fixture(
     if not row:
         return False
 
+    prior = await conn.fetch(
+        """
+        SELECT m.text FROM moans m JOIN users u ON u.id = m.user_id
+         WHERE u.handle = 'HOT_TAKE_HARRY' AND m.fixture_id = $1
+           AND m.deleted_at IS NULL
+         ORDER BY m.created_at DESC LIMIT 5
+        """,
+        fixture_id,
+    )
+    avoid_block = ""
+    if prior:
+        bullets = "\n".join(f"- {r['text']}" for r in prior)
+        avoid_block = (
+            "\n\nDO NOT REPEAT YOURSELF. You already posted these in this match — "
+            "pick a totally different angle, vocabulary, and target:\n" + bullets
+        )
+
     prompt = (
         f"{row['scorer_name']} just scored against {row['conceder_name']} on {minute}'. "
-        f"Score: {row['home_short']} {home_score}-{away_score} {row['away_short']} "
-        f"({row['competition']}). Drop the take."
+        f"Score: {row['home_name']} {home_score}-{away_score} {row['away_name']} "
+        f"({row['competition']}). Refer to teams by these full names. "
+        f"Drop the take.{avoid_block}"
     )
     data = await _claude_json(_GOAL_TAKE_SYSTEM, prompt)
     if not data:

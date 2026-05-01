@@ -28,6 +28,42 @@ import structlog
 from . import sportsdb
 from .sportsdb import Event
 
+import random as _random
+import re as _re
+
+_SUFFIX_RE = _re.compile(
+    r"\s+(United|City|Town|Hotspur|Albion|Wanderers|Rovers|FC|& Hove Albion)$",
+    _re.IGNORECASE,
+)
+
+
+def _display_name(full: str) -> str:
+    """Strip common club suffixes so 'Leeds United' → 'Leeds', 'Burnley' stays 'Burnley'."""
+    if not full:
+        return full
+    short = _SUFFIX_RE.sub("", full).strip()
+    return short or full
+
+
+_GOAL_BANNERS = [
+    "GOAL — {scorer} ({score}). {conceder} bottling it as expected.",
+    "GOAL — {scorer} ({score}). {conceder}'s defence carved open like a Sunday roast.",
+    "GOAL — {scorer} ({score}). {conceder} fans, kettle on, the misery's just starting.",
+    "GOAL — {scorer} ({score}). Absolute schoolboy stuff from {conceder} at the back.",
+    "GOAL — {scorer} ({score}). {conceder} chasing shadows, pure shambles.",
+    "GOAL — {scorer} ({score}). {conceder}'s back four organised like a pub fight.",
+    "GOAL — {scorer} ({score}). {conceder} fans heading for the exits early.",
+    "GOAL — {scorer} ({score}). {conceder} folding like a deckchair.",
+    "GOAL — {scorer} ({score}). That's a relegation goal if ever there was one for {conceder}.",
+    "GOAL — {scorer} ({score}). {conceder}'s keeper might want to retire after that.",
+]
+
+
+def _goal_banner(scorer: str, conceder: str, home: int, away: int) -> str:
+    return _random.choice(_GOAL_BANNERS).format(
+        scorer=scorer, conceder=conceder, score=f"{home}-{away}",
+    )
+
 log = structlog.get_logger(__name__)
 
 
@@ -215,8 +251,8 @@ async def sync_live(pool: asyncpg.Pool, client: httpx.AsyncClient) -> dict[str, 
                    home_team_id::text AS home_id,
                    away_team_id::text AS away_id,
                    home_score, away_score, status, kickoff_at,
-                   (SELECT short_name FROM teams WHERE id = home_team_id) AS home_short,
-                   (SELECT short_name FROM teams WHERE id = away_team_id) AS away_short
+                   (SELECT name FROM teams WHERE id = home_team_id) AS home_name,
+                   (SELECT name FROM teams WHERE id = away_team_id) AS away_name
               FROM fixtures
              WHERE external_id IS NOT NULL
                AND (status = 'LIVE'
@@ -257,9 +293,11 @@ async def _apply_live_update(
     minute = max(0, min(95, int(elapsed))) if new_status == "LIVE" else (0 if new_status == "SCHEDULED" else 90)
     posted = 0
 
+    home_disp = _display_name(fixture_row["home_name"])
+    away_disp = _display_name(fixture_row["away_name"])
     if prev_status != "LIVE" and new_status == "LIVE":
         await _post_event(conn, fid, 0,
-            f"KICK OFF — {fixture_row['home_short']} vs {fixture_row['away_short']}. "
+            f"KICK OFF — {home_disp} vs {away_disp}. "
             f"Game on. Moan loud, moan often.")
         posted += 1
     from . import house_ai
@@ -269,9 +307,7 @@ async def _apply_live_update(
     for _ in range(max(0, new_home - prev_home)):
         running_home += 1
         await _post_event(conn, fid, minute,
-            f"GOAL — {fixture_row['home_short']} ({running_home}-{running_away}). "
-            f"{fixture_row['home_short']} fans on their feet, "
-            f"{fixture_row['away_short']} fans heading to the bar.")
+            _goal_banner(home_disp, away_disp, running_home, running_away))
         posted += 1
         try:
             await house_ai.goal_take_for_fixture(
@@ -283,9 +319,7 @@ async def _apply_live_update(
     for _ in range(max(0, new_away - prev_away)):
         running_away += 1
         await _post_event(conn, fid, minute,
-            f"GOAL — {fixture_row['away_short']} ({running_home}-{running_away}). "
-            f"{fixture_row['away_short']} fans on their feet, "
-            f"{fixture_row['home_short']} fans crying into their pies.")
+            _goal_banner(away_disp, home_disp, running_home, running_away))
         posted += 1
         try:
             await house_ai.goal_take_for_fixture(
@@ -297,12 +331,12 @@ async def _apply_live_update(
     became_ft = prev_status == "LIVE" and new_status == "FT"
     if became_ft:
         verdict = "draw" if new_home == new_away else (
-            f"{fixture_row['home_short']} edge it" if new_home > new_away
-            else f"{fixture_row['away_short']} steal it"
+            f"{home_disp} edge it" if new_home > new_away
+            else f"{away_disp} steal it"
         )
         await _post_event(conn, fid, 90,
-            f"FULL TIME — {fixture_row['home_short']} {new_home}-{new_away} "
-            f"{fixture_row['away_short']}. {verdict}. The post-mortem starts now.")
+            f"FULL TIME — {home_disp} {new_home}-{new_away} "
+            f"{away_disp}. {verdict}. The post-mortem starts now.")
         posted += 1
 
     await conn.execute(
