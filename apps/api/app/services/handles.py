@@ -174,23 +174,23 @@ async def sync_reserved(conn: asyncpg.Connection) -> int:
     Doesn't re-reserve handles that have already been released.
     Returns the number of new rows inserted.
     """
+    from . import handles_seed
     inserted = 0
-    by_cat = (
-        ("club", RESERVED_CLUBS),
-        ("manager", RESERVED_MANAGERS),
-        ("player", RESERVED_PLAYERS),
-        ("pundit", RESERVED_PUNDITS),
-    )
-    for category, names in by_cat:
-        for name in names:
-            handle_lc = name.lower()
-            n = await conn.execute(
-                "INSERT INTO reserved_handles (handle_lc, category) "
-                "VALUES ($1, $2) ON CONFLICT (handle_lc) DO NOTHING",
-                handle_lc, category,
-            )
-            if n.endswith(" 1"):
-                inserted += 1
+    pairs: list[tuple[str, str]] = []
+    pairs.extend((n, "club") for n in RESERVED_CLUBS)
+    pairs.extend((n, "manager") for n in RESERVED_MANAGERS)
+    pairs.extend((n, "player") for n in RESERVED_PLAYERS)
+    pairs.extend((n, "pundit") for n in RESERVED_PUNDITS)
+    pairs.extend(handles_seed.all_extras())
+    for name, category in pairs:
+        handle_lc = name.lower()
+        n = await conn.execute(
+            "INSERT INTO reserved_handles (handle_lc, category) "
+            "VALUES ($1, $2) ON CONFLICT (handle_lc) DO NOTHING",
+            handle_lc, category,
+        )
+        if n.endswith(" 1"):
+            inserted += 1
     return inserted
 
 
