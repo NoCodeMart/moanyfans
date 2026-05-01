@@ -11,9 +11,10 @@ const publishableClientKey = import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY ?
 
 export const isStackConfigured = !!(projectId && publishableClientKey);
 
-let _stackApp: StackClientApp | null = null;
+type AppT = StackClientApp<true, string>;
+let _stackApp: AppT | null = null;
 
-export function getStackApp(): StackClientApp {
+export function getStackApp(): AppT {
   if (!isStackConfigured) {
     throw new Error('Stack Auth is not configured (missing VITE_STACK_PROJECT_ID / VITE_STACK_PUBLISHABLE_CLIENT_KEY)');
   }
