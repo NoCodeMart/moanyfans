@@ -6,9 +6,10 @@
  * (reactions, replies, sharing, moderation) but capture optional structured
  * fields (player, from-team, to-team, fee, source).
  */
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { api, type Moan, type Team } from '../lib/api';
+import { useCurrentUser } from '../lib/auth';
 import { MoanCard } from './Live';
 
 // ── Composer fields ────────────────────────────────────────────────────────
@@ -130,8 +131,122 @@ export function RumourBanner({ moan }: { moan: Moan }) {
           source ↗
         </a>
       )}
+      <RumourVoteBar moan={moan} />
     </div>
   );
+}
+
+// ── Community vote bar + admin override ────────────────────────────────────
+
+const VOTE_OPTIONS = [
+  { key: 'HERE_WE_GO', label: '🟢 HERE WE GO', tone: 'var(--green, #06a77d)' },
+  { key: 'BOLLOCKS',   label: '🔴 BOLLOCKS',   tone: 'var(--red, #e63946)'   },
+  { key: 'GET_A_GRIP', label: '🤡 GET A GRIP', tone: '#a06bd1'                },
+] as const;
+
+type VoteKey = typeof VOTE_OPTIONS[number]['key'];
+
+function RumourVoteBar({ moan }: { moan: Moan }) {
+  const { user } = useCurrentUser();
+  const qc = useQueryClient();
+  const isAdmin = !!user?.is_admin;
+  const isResolved = moan.rumour_status === 'CONFIRMED' || moan.rumour_status === 'BUSTED';
+
+  const tally = {
+    HERE_WE_GO: moan.rumour_here_we_go ?? 0,
+    BOLLOCKS:   moan.rumour_bollocks ?? 0,
+    GET_A_GRIP: moan.rumour_get_a_grip ?? 0,
+  };
+  const total = tally.HERE_WE_GO + tally.BOLLOCKS + tally.GET_A_GRIP;
+
+  const vote = useMutation({
+    mutationFn: (next: VoteKey | null) => api.voteRumour(moan.id, next),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['feed'] });
+    },
+  });
+  const stamp = useMutation({
+    mutationFn: (next: 'CONFIRMED' | 'BUSTED' | null) => api.setRumourStatus(moan.id, next),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['feed'] });
+    },
+  });
+
+  return (
+    <div style={{
+      flexBasis: '100%', display: 'flex', flexDirection: 'column', gap: 8,
+      marginTop: 4, paddingTop: 10, borderTop: '1px dashed rgba(245,241,232,0.25)',
+    }}>
+      {/* Vote buttons */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {VOTE_OPTIONS.map(opt => {
+          const active = moan.rumour_your_vote === opt.key;
+          const count = tally[opt.key];
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              disabled={vote.isPending || isResolved}
+              onClick={() => vote.mutate(active ? null : opt.key)}
+              style={{
+                padding: '4px 10px', cursor: isResolved ? 'default' : 'pointer',
+                background: active ? opt.tone : 'transparent',
+                color: active ? 'var(--cream)' : 'var(--cream)',
+                border: `2px solid ${opt.tone}`,
+                fontFamily: 'var(--font-mono)', fontSize: 11,
+                letterSpacing: '0.05em',
+                opacity: isResolved && !active ? 0.4 : 1,
+              }}
+            >
+              {opt.label} <span style={{ opacity: 0.7 }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Lean bar */}
+      {total > 0 && (
+        <div style={{ display: 'flex', height: 6, overflow: 'hidden' }}>
+          {VOTE_OPTIONS.map(opt => {
+            const w = (tally[opt.key] / total) * 100;
+            return w > 0 ? (
+              <div key={opt.key} title={`${opt.label.replace(/^[^\s]+\s/, '')}: ${tally[opt.key]}`}
+                style={{ width: `${w}%`, background: opt.tone }} />
+            ) : null;
+          })}
+        </div>
+      )}
+
+      {/* Admin override */}
+      {isAdmin && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 2,
+                        fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.85 }}>
+          <span style={{ alignSelf: 'center', letterSpacing: '0.05em' }}>ADMIN:</span>
+          <button type="button" disabled={stamp.isPending}
+            onClick={() => stamp.mutate(moan.rumour_status === 'CONFIRMED' ? null : 'CONFIRMED')}
+            style={adminBtn(moan.rumour_status === 'CONFIRMED', 'var(--green, #06a77d)')}>
+            ✓ CONFIRM
+          </button>
+          <button type="button" disabled={stamp.isPending}
+            onClick={() => stamp.mutate(moan.rumour_status === 'BUSTED' ? null : 'BUSTED')}
+            style={adminBtn(moan.rumour_status === 'BUSTED', 'var(--red, #e63946)')}>
+            ✗ BUST
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function adminBtn(active: boolean, tone: string): CSSProperties {
+  return {
+    padding: '2px 8px',
+    background: active ? tone : 'transparent',
+    color: 'var(--cream)',
+    border: `1px solid ${tone}`,
+    fontFamily: 'var(--font-mono)', fontSize: 10,
+    letterSpacing: '0.05em', cursor: 'pointer',
+  };
 }
 
 // ── Transfer Room — filtered feed page ─────────────────────────────────────

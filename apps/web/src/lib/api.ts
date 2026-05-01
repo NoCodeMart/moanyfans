@@ -160,6 +160,10 @@ export type Moan = {
   rumour_fee?: string | null;
   rumour_source_url?: string | null;
   rumour_status?: string | null;
+  rumour_here_we_go?: number;
+  rumour_bollocks?: number;
+  rumour_get_a_grip?: number;
+  rumour_your_vote?: 'HERE_WE_GO' | 'BOLLOCKS' | 'GET_A_GRIP' | null;
   poll_options?: PollOption[] | null;
   poll_total_votes?: number;
   poll_closes_at?: string | null;
@@ -570,6 +574,14 @@ export const api = {
   votePoll: (moanId: string, choice_idx: number) =>
     request<Moan>(`/moans/${moanId}/vote`, {
       method: 'POST', body: JSON.stringify({ choice_idx }),
+    }),
+  voteRumour: (moanId: string, vote: 'HERE_WE_GO' | 'BOLLOCKS' | 'GET_A_GRIP' | null) =>
+    request<Moan>(`/moans/${moanId}/rumour-vote`, {
+      method: 'POST', body: JSON.stringify({ vote }),
+    }),
+  setRumourStatus: (moanId: string, status: 'CONFIRMED' | 'BUSTED' | null) =>
+    request<Moan>(`/moans/${moanId}/rumour-status`, {
+      method: 'POST', body: JSON.stringify({ status }),
     }),
   reactToMoan: (moanId: string, kind: ReactionKind | null) =>
     request<Moan>(`/moans/${moanId}/react`, {

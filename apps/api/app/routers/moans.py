@@ -79,6 +79,10 @@ class MoanOut(BaseModel):
     rumour_fee: str | None = None
     rumour_source_url: str | None = None
     rumour_status: str | None = None  # CONFIRMED | BUSTED | null (pending)
+    rumour_here_we_go: int = 0
+    rumour_bollocks: int = 0
+    rumour_get_a_grip: int = 0
+    rumour_your_vote: str | None = None  # HERE_WE_GO | BOLLOCKS | GET_A_GRIP | null
     # Poll fields — populated only when kind == 'POLL'
     poll_options: list[dict] | None = None  # [{label, votes}]
     poll_total_votes: int = 0
@@ -164,7 +168,15 @@ SELECT
               FROM poll_votes WHERE moan_id = m.id),
            ARRAY[]::smallint[])           AS poll_vote_indices,
   (SELECT choice_idx FROM poll_votes WHERE moan_id = m.id AND user_id = $1
-     LIMIT 1)                              AS poll_your_choice
+     LIMIT 1)                              AS poll_your_choice,
+  (SELECT count(*) FROM rumour_votes
+     WHERE moan_id = m.id AND vote = 'HERE_WE_GO')   AS rumour_here_we_go,
+  (SELECT count(*) FROM rumour_votes
+     WHERE moan_id = m.id AND vote = 'BOLLOCKS')     AS rumour_bollocks,
+  (SELECT count(*) FROM rumour_votes
+     WHERE moan_id = m.id AND vote = 'GET_A_GRIP')   AS rumour_get_a_grip,
+  (SELECT vote FROM rumour_votes
+     WHERE moan_id = m.id AND user_id = $1 LIMIT 1)  AS rumour_your_vote
 FROM moans m
 JOIN users u           ON u.id = m.user_id
 LEFT JOIN teams t      ON t.id = m.team_id
@@ -243,6 +255,10 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
         poll_closes_at=(row["poll_closes_at"].isoformat()
                           if row.get("poll_closes_at") else None),
         poll_your_choice=row.get("poll_your_choice"),
+        rumour_here_we_go=row.get("rumour_here_we_go") or 0,
+        rumour_bollocks=row.get("rumour_bollocks") or 0,
+        rumour_get_a_grip=row.get("rumour_get_a_grip") or 0,
+        rumour_your_vote=row.get("rumour_your_vote"),
     )
 
 
@@ -625,6 +641,77 @@ async def vote_on_poll(
             ON CONFLICT (moan_id, user_id) DO UPDATE SET choice_idx = EXCLUDED.choice_idx
             """,
             moan_id, user.id, body.choice_idx,
+        )
+        row = await conn.fetchrow(_FEED_SQL + " WHERE m.id = $2", user.id, moan_id)
+    if not row:
+        raise HTTPException(404, "Moan not found")
+    return _row_to_moan(row)
+
+
+class RumourVoteBody(BaseModel):
+    vote: Literal["HERE_WE_GO", "BOLLOCKS", "GET_A_GRIP"] | None  # null = remove
+
+
+@router.post("/{moan_id}/rumour-vote", response_model=MoanOut)
+async def vote_on_rumour(
+    moan_id: str, body: RumourVoteBody, request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> MoanOut:
+    limit_user(user, action="rumour_vote", limit=60, window_s=60)
+    pool = request.app.state.pool
+    async with pool.acquire() as conn, conn.transaction():
+        info = await conn.fetchrow(
+            "SELECT kind::text AS kind, deleted_at FROM moans WHERE id = $1", moan_id,
+        )
+        if not info or info["deleted_at"] is not None:
+            raise HTTPException(404, "Rumour not found.")
+        if info["kind"] != "RUMOUR":
+            raise HTTPException(400, "Not a rumour.")
+        if body.vote is None:
+            await conn.execute(
+                "DELETE FROM rumour_votes WHERE moan_id = $1 AND user_id = $2",
+                moan_id, user.id,
+            )
+        else:
+            await conn.execute(
+                """
+                INSERT INTO rumour_votes (moan_id, user_id, vote)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (moan_id, user_id) DO UPDATE SET vote = EXCLUDED.vote
+                """,
+                moan_id, user.id, body.vote,
+            )
+        row = await conn.fetchrow(_FEED_SQL + " WHERE m.id = $2", user.id, moan_id)
+    if not row:
+        raise HTTPException(404, "Moan not found")
+    return _row_to_moan(row)
+
+
+class RumourStatusBody(BaseModel):
+    status: Literal["CONFIRMED", "BUSTED"] | None  # null = un-resolve
+
+
+@router.post("/{moan_id}/rumour-status", response_model=MoanOut)
+async def set_rumour_status(
+    moan_id: str, body: RumourStatusBody, request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> MoanOut:
+    if not user.is_admin:
+        raise HTTPException(403, "Admin only.")
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        info = await conn.fetchrow(
+            "SELECT kind::text AS kind, deleted_at FROM moans WHERE id = $1", moan_id,
+        )
+        if not info or info["deleted_at"] is not None:
+            raise HTTPException(404, "Rumour not found.")
+        if info["kind"] != "RUMOUR":
+            raise HTTPException(400, "Not a rumour.")
+        await conn.execute(
+            "UPDATE moans SET rumour_status = $1, "
+            "rumour_resolved_at = CASE WHEN $1 IS NULL THEN NULL ELSE now() END "
+            "WHERE id = $2",
+            body.status, moan_id,
         )
         row = await conn.fetchrow(_FEED_SQL + " WHERE m.id = $2", user.id, moan_id)
     if not row:
