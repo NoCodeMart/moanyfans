@@ -1266,6 +1266,21 @@ export function MeProfile({ onPickTeam }: { onPickTeam: () => void }): ReactNode
 
       <PushToggle />
 
+      {authEnabled && (
+        <a
+          href="/handler/sign-out"
+          style={{
+            display: 'inline-block', marginTop: 12,
+            padding: '8px 16px', border: '2px solid var(--ink)',
+            background: 'var(--paper)', color: 'var(--ink)',
+            fontFamily: 'var(--font-display)', fontSize: 12,
+            letterSpacing: '0.05em', textDecoration: 'none', cursor: 'pointer',
+          }}
+        >
+          SIGN OUT →
+        </a>
+      )}
+
 
       {/* Recent moans */}
       <div className="feed-divider"><span>━━━ YOUR RECENT MOANS ━━━</span></div>
