@@ -294,6 +294,13 @@ export type AdminUserRow = {
   created_at: string;
 };
 
+export type ReservedRow = {
+  handle: string;
+  category: string;
+  released: boolean;
+  released_at: string | null;
+};
+
 export type WaitlistRow = {
   email: string;
   source: string | null;
@@ -385,6 +392,20 @@ export const api = {
     request<WaitlistRow[]>(`/admin/waitlist?limit=${limit}`),
   adminWaitlistCount: () => request<{ count: number }>('/admin/waitlist/count'),
   adminWaitlistCsvUrl: () => `${API_URL}/admin/waitlist.csv`,
+  adminReservedHandles: (params: { q?: string; category?: string; include_released?: boolean } = {}) => {
+    const qp = new URLSearchParams();
+    if (params.q) qp.set('q', params.q);
+    if (params.category) qp.set('category', params.category);
+    if (params.include_released !== undefined) qp.set('include_released', String(params.include_released));
+    const qs = qp.toString();
+    return request<ReservedRow[]>(`/admin/reserved-handles${qs ? `?${qs}` : ''}`);
+  },
+  adminReleaseHandle: (handle: string) =>
+    request<{ status: string }>(`/admin/reserved-handles/${encodeURIComponent(handle)}/release`,
+      { method: 'POST' }),
+  adminReReserveHandle: (handle: string) =>
+    request<{ status: string }>(`/admin/reserved-handles/${encodeURIComponent(handle)}/reserve`,
+      { method: 'POST' }),
   joinWaitlist: (email: string, source = 'coming-soon') =>
     request<{ status: string }>('/waitlist', {
       method: 'POST', body: JSON.stringify({ email, source }),

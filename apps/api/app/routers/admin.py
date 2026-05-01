@@ -249,3 +249,75 @@ async def user_action(handle: str, body: UserActionBody, request: Request,
                 "UPDATE users SET is_admin = false WHERE id = $1", target["id"],
             )
     return {"status": body.action}
+
+
+# ── Reserved handles ───────────────────────────────────────────────────────
+
+class ReservedRow(BaseModel):
+    handle: str
+    category: str
+    released: bool
+    released_at: str | None = None
+
+
+@router.get("/reserved-handles", response_model=list[ReservedRow])
+async def list_reserved(request: Request,
+                        _: Annotated[CurrentUser, Depends(require_admin)],
+                        q: str | None = None,
+                        category: str | None = None,
+                        include_released: bool = True,
+                        limit: int = 1000) -> list[ReservedRow]:
+    pool = request.app.state.pool
+    sql = "SELECT handle_lc, category, released_at FROM reserved_handles WHERE TRUE"
+    args: list = []
+    if not include_released:
+        sql += " AND released_at IS NULL"
+    if q:
+        args.append(f"%{q.lower()}%")
+        sql += f" AND handle_lc LIKE ${len(args)}"
+    if category:
+        args.append(category)
+        sql += f" AND category = ${len(args)}"
+    args.append(limit)
+    sql += f" ORDER BY released_at IS NULL DESC, handle_lc LIMIT ${len(args)}"
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, *args)
+    return [
+        ReservedRow(
+            handle=r["handle_lc"].upper(),
+            category=r["category"],
+            released=r["released_at"] is not None,
+            released_at=r["released_at"].isoformat() if r["released_at"] else None,
+        ) for r in rows
+    ]
+
+
+@router.post("/reserved-handles/{handle}/release")
+async def release_reserved(handle: str, request: Request,
+                           caller: Annotated[CurrentUser, Depends(require_admin)]) -> dict[str, str]:
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        n = await conn.execute(
+            "UPDATE reserved_handles SET released_at = now(), released_by = $1 "
+            "WHERE handle_lc = lower($2) AND released_at IS NULL",
+            caller.id, handle,
+        )
+    if n == "UPDATE 0":
+        raise HTTPException(404, "Handle not reserved (or already released).")
+    return {"status": "released"}
+
+
+@router.post("/reserved-handles/{handle}/reserve")
+async def reserve_handle(handle: str, request: Request,
+                         _: Annotated[CurrentUser, Depends(require_admin)]) -> dict[str, str]:
+    """Re-reserve a previously released handle (mistake-undo)."""
+    pool = request.app.state.pool
+    async with pool.acquire() as conn:
+        n = await conn.execute(
+            "UPDATE reserved_handles SET released_at = NULL, released_by = NULL "
+            "WHERE handle_lc = lower($1)",
+            handle,
+        )
+    if n == "UPDATE 0":
+        raise HTTPException(404, "Handle not in reserved list.")
+    return {"status": "reserved"}

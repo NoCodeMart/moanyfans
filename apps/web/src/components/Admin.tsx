@@ -1,9 +1,9 @@
 import { useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type AdminUserRow, type ReportRow, type WaitlistRow } from '../lib/api';
+import { api, type AdminUserRow, type ReportRow, type ReservedRow, type WaitlistRow } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 
-type Tab = 'overview' | 'reports' | 'users' | 'waitlist';
+type Tab = 'overview' | 'reports' | 'users' | 'waitlist' | 'reserved';
 
 export function AdminPage() {
   const { user, loading } = useCurrentUser();
@@ -24,7 +24,7 @@ export function AdminPage() {
         ADMIN CONSOLE
       </h1>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
-        {(['overview', 'reports', 'users', 'waitlist'] as Tab[]).map(t => (
+        {(['overview', 'reports', 'users', 'waitlist', 'reserved'] as Tab[]).map(t => (
           <button key={t} type="button" onClick={() => setTab(t)} style={pillStyle(tab === t)}>
             {t.toUpperCase()}
           </button>
@@ -34,6 +34,101 @@ export function AdminPage() {
       {tab === 'reports' && <Reports />}
       {tab === 'users' && <Users />}
       {tab === 'waitlist' && <Waitlist />}
+      {tab === 'reserved' && <Reserved />}
+    </div>
+  );
+}
+
+function Reserved() {
+  const qc = useQueryClient();
+  const [q, setQ] = useState('');
+  const [category, setCategory] = useState<string>('');
+  const [showReleased, setShowReleased] = useState(true);
+  const list = useQuery({
+    queryKey: ['admin', 'reserved', q, category, showReleased],
+    queryFn: () => api.adminReservedHandles({
+      q: q || undefined,
+      category: category || undefined,
+      include_released: showReleased,
+    }),
+  });
+  const release = useMutation({
+    mutationFn: (handle: string) => api.adminReleaseHandle(handle),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'reserved'] }),
+  });
+  const reReserve = useMutation({
+    mutationFn: (handle: string) => api.adminReReserveHandle(handle),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'reserved'] }),
+  });
+
+  const cats = ['', 'club', 'manager', 'player', 'pundit'];
+  const data = list.data ?? [];
+  const activeCount = data.filter(r => !r.released).length;
+  const releasedCount = data.filter(r => r.released).length;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input value={q} onChange={e => setQ(e.target.value)}
+          placeholder="Filter handles…"
+          style={{
+            padding: '6px 10px', border: '2px solid var(--ink)',
+            background: 'var(--paper)', fontFamily: 'var(--font-mono)', fontSize: 13,
+            flex: 1, maxWidth: 260,
+          }} />
+        <select value={category} onChange={e => setCategory(e.target.value)}
+          style={{
+            padding: '6px 10px', border: '2px solid var(--ink)',
+            background: 'var(--paper)', fontFamily: 'var(--font-mono)', fontSize: 13,
+          }}>
+          {cats.map(c => (
+            <option key={c || 'all'} value={c}>{c ? c.toUpperCase() : 'ALL CATEGORIES'}</option>
+          ))}
+        </select>
+        <label style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+          <input type="checkbox" checked={showReleased}
+            onChange={e => setShowReleased(e.target.checked)} /> Show released
+        </label>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.6 }}>
+          {activeCount} reserved · {releasedCount} released
+        </span>
+      </div>
+      {list.isLoading && <div>Loading…</div>}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 6,
+      }}>
+        {data.map(r => (
+          <div key={r.handle} style={{
+            background: 'var(--paper)', border: '2px solid var(--ink)',
+            padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8,
+            opacity: r.released ? 0.55 : 1,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, lineHeight: 1.1 }}>
+                @{r.handle}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+                            opacity: 0.6, letterSpacing: '0.05em' }}>
+                {r.category.toUpperCase()}{r.released ? ' · RELEASED' : ''}
+              </div>
+            </div>
+            {r.released ? (
+              <button type="button" disabled={reReserve.isPending}
+                onClick={() => reReserve.mutate(r.handle)}
+                style={btn('var(--paper)', 'var(--ink)')}
+                title="Re-reserve">↶</button>
+            ) : (
+              <button type="button" disabled={release.isPending}
+                onClick={() => {
+                  if (window.confirm(`Release @${r.handle}? Anyone will be able to grab it.`))
+                    release.mutate(r.handle);
+                }}
+                style={{ ...btn('var(--red)', 'var(--cream)'), padding: '4px 8px', fontSize: 10 }}
+                title="Release">FREE</button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
