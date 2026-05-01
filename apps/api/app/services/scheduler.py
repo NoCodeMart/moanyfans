@@ -50,10 +50,33 @@ async def _advance_fixtures(conn: asyncpg.Connection) -> tuple[int, int]:
     # to live. minute_estimate stays at 0 until actual kickoff so the UI can
     # show "PRE-MATCH" instead of a fake clock.
     started = await conn.fetch(
-        "UPDATE fixtures SET status = 'LIVE' "
-        "WHERE status = 'SCHEDULED' AND kickoff_at <= now() + interval '15 minutes' "
-        "RETURNING id",
+        """
+        WITH advanced AS (
+          UPDATE fixtures SET status = 'LIVE'
+           WHERE status = 'SCHEDULED' AND kickoff_at <= now() + interval '15 minutes'
+        RETURNING id, home_team_id, away_team_id, kickoff_at
+        )
+        SELECT a.id, a.kickoff_at, ht.short_name AS home, at.short_name AS away
+          FROM advanced a
+          JOIN teams ht ON ht.id = a.home_team_id
+          JOIN teams at ON at.id = a.away_team_id
+        """,
     )
+    # Seed a TEAM SHEETS / KICK OFF event so the thread isn't bare when fans
+    # walk in. We don't know team sheets, so just an opener that sets the tone.
+    for row in started:
+        is_pre_match = row["kickoff_at"].timestamp() > __import__("time").time()
+        opener = (
+            f"PRE-MATCH — {row['home']} vs {row['away']} kicks off shortly. "
+            f"Get your takes in early."
+            if is_pre_match else
+            f"KICK OFF — {row['home']} vs {row['away']}. Game on. Moan loud, moan often."
+        )
+        await conn.execute(
+            "INSERT INTO live_thread_events (fixture_id, minute, text, source) "
+            "VALUES ($1, 0, $2, 'system')",
+            row["id"], opener,
+        )
     finished = await conn.fetch(
         "UPDATE fixtures SET status = 'FT' "
         "WHERE status = 'LIVE' AND kickoff_at <= now() - interval '120 minutes' RETURNING id",
