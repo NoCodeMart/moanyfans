@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { ReactionKind, Side, TeamRef } from '../lib/api';
 import { useCreateMoan, useFixture, useFixtureThread, useReact } from '../lib/hooks';
 
@@ -23,12 +23,8 @@ const SIDE_COLORS: Record<Side, string> = {
 
 export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose: () => void }) {
   const fixture = useFixture(fixtureId);
-  const [side, setSide] = useState<Side>('NEUTRAL');
   const [filterSide, setFilterSide] = useState<Side | null>(null);
   const thread = useFixtureThread(fixtureId, filterSide ?? undefined);
-  const create = useCreateMoan();
-  const [text, setText] = useState('');
-  const ref = useRef<HTMLTextAreaElement | null>(null);
 
   const f = fixture.data;
   const liveStatus = f?.status ?? 'SCHEDULED';
@@ -41,28 +37,6 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
       return b.created_at.localeCompare(a.created_at);
     });
   }, [thread.data]);
-
-  const submit = async () => {
-    const t = text.trim();
-    if (!t || !f) return;
-    try {
-      await create.mutateAsync({
-        kind: 'MOAN',
-        text: t,
-        fixture_id: fixtureId,
-        side,
-        team_slug: side === 'HOME' ? f.home_team.slug : side === 'AWAY' ? f.away_team.slug : undefined,
-      });
-      setText('');
-      thread.refetch();
-    } catch (err) {
-      console.error('moan submit failed', err);
-    }
-  };
-
-  useEffect(() => {
-    ref.current?.focus();
-  }, []);
 
   if (fixture.isLoading) return <div style={{ padding: 24 }}>Loading fixture…</div>;
   if (!f) return <div style={{ padding: 24 }}>Fixture not found.</div>;
@@ -135,75 +109,107 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
         ))}
       </div>
 
-      <div style={{
-        position: 'sticky', bottom: 0,
-        background: 'var(--paper)', borderTop: '4px solid var(--ink)',
-        padding: 12,
-      }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          {(['HOME', 'NEUTRAL', 'AWAY'] as Side[]).map(s => {
-            const active = side === s;
-            const colour = s === 'HOME' ? f.home_team.primary_color
-              : s === 'AWAY' ? f.away_team.primary_color
-              : 'var(--ink)';
-            const label = s === 'HOME' ? displayTeam(f.home_team)
-              : s === 'AWAY' ? displayTeam(f.away_team)
-              : 'NEUTRAL';
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSide(s)}
-                style={{
-                  fontFamily: 'var(--font-display)', fontSize: 12, letterSpacing: '0.05em',
-                  padding: '6px 14px',
-                  background: active ? colour : 'transparent',
-                  color: active ? 'var(--cream)' : 'var(--ink)',
-                  border: `2px solid ${colour}`,
-                  cursor: 'pointer',
-                }}
-              >POSTING AS {label}</button>
-            );
-          })}
-          <span style={{ flex: 1 }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, alignSelf: 'center',
-                          opacity: 0.7 }}>{liveStatus === 'LIVE' ? `LIVE · ${minute}'` : liveStatus}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <textarea
-            ref={ref}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
-            }}
-            placeholder={`MOAN AT ${minute}'… (⌘↵ to send)`}
-            maxLength={500}
-            rows={2}
-            style={{
-              flex: 1, resize: 'vertical', padding: 10,
-              border: '2px solid var(--ink)', background: 'var(--paper)',
-              fontFamily: 'var(--font-body)', fontSize: 14,
-            }}
-          />
-          <button
-            type="button"
-            onClick={submit}
-            disabled={create.isPending || !text.trim()}
-            style={{
-              background: SIDE_COLORS[side], color: 'var(--cream)',
-              border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--font-display)', fontSize: 16,
-              letterSpacing: '0.05em',
-              padding: '0 24px',
-              opacity: !text.trim() || create.isPending ? 0.5 : 1,
-            }}
-          >{create.isPending ? '…' : 'MOAN'}</button>
-        </div>
-      </div>
+      <LiveComposer
+        fixtureId={fixtureId}
+        homeLabel={displayTeam(f.home_team)}
+        awayLabel={displayTeam(f.away_team)}
+        homePrimary={f.home_team.primary_color}
+        awayPrimary={f.away_team.primary_color}
+        homeSlug={f.home_team.slug}
+        awaySlug={f.away_team.slug}
+      />
     </div>
   );
 }
+
+// Composer is intentionally separate so that polling-driven re-renders of the
+// parent (score updates, new thread items every 5s) can NEVER blur the
+// textarea or wipe what the user is typing. It only re-renders when its own
+// state changes or its props change — and those props are stable strings.
+const LiveComposer = memo(function LiveComposer({
+  fixtureId, homeLabel, awayLabel, homePrimary, awayPrimary, homeSlug, awaySlug,
+}: {
+  fixtureId: string;
+  homeLabel: string; awayLabel: string;
+  homePrimary: string; awayPrimary: string;
+  homeSlug: string; awaySlug: string;
+}) {
+  const [side, setSide] = useState<Side>('NEUTRAL');
+  const [text, setText] = useState('');
+  const create = useCreateMoan();
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => { ref.current?.focus(); }, []);
+
+  const submit = async () => {
+    const t = text.trim();
+    if (!t) return;
+    try {
+      await create.mutateAsync({
+        kind: 'MOAN', text: t, fixture_id: fixtureId, side,
+        team_slug: side === 'HOME' ? homeSlug : side === 'AWAY' ? awaySlug : undefined,
+      });
+      setText('');
+    } catch (err) {
+      console.error('moan submit failed', err);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'sticky', bottom: 0,
+      background: 'var(--paper)', borderTop: '4px solid var(--ink)',
+      padding: 12,
+    }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+        {(['HOME', 'NEUTRAL', 'AWAY'] as Side[]).map(s => {
+          const active = side === s;
+          const colour = s === 'HOME' ? homePrimary
+            : s === 'AWAY' ? awayPrimary : 'var(--ink)';
+          const label = s === 'HOME' ? homeLabel
+            : s === 'AWAY' ? awayLabel : 'NEUTRAL';
+          return (
+            <button key={s} type="button" onClick={() => setSide(s)}
+              style={{
+                fontFamily: 'var(--font-display)', fontSize: 12, letterSpacing: '0.05em',
+                padding: '6px 14px',
+                background: active ? colour : 'transparent',
+                color: active ? 'var(--cream)' : 'var(--ink)',
+                border: `2px solid ${colour}`, cursor: 'pointer',
+              }}>POSTING AS {label}</button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <textarea
+          ref={ref}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
+          }}
+          placeholder="Drop your moan… (⌘↵ to send)"
+          maxLength={500}
+          rows={2}
+          style={{
+            flex: 1, resize: 'vertical', padding: 10,
+            border: '2px solid var(--ink)', background: 'var(--paper)',
+            fontFamily: 'var(--font-body)', fontSize: 14,
+          }}
+        />
+        <button type="button" onClick={submit}
+          disabled={create.isPending || !text.trim()}
+          style={{
+            background: SIDE_COLORS[side], color: 'var(--cream)',
+            border: 'none', cursor: 'pointer',
+            fontFamily: 'var(--font-display)', fontSize: 16,
+            letterSpacing: '0.05em', padding: '0 24px',
+            opacity: !text.trim() || create.isPending ? 0.5 : 1,
+          }}>{create.isPending ? '…' : 'MOAN'}</button>
+      </div>
+    </div>
+  );
+});
 
 function ScoreBanner({
   homeShort, homePrimary, awayShort, awayPrimary,
