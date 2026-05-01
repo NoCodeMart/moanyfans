@@ -11,7 +11,8 @@ import { SearchOverlay } from './components/SearchOverlay';
 import { TagFeed } from './components/TagFeed';
 import { TeamFeed } from './components/TeamFeed';
 import { UserProfileView } from './components/UserProfile';
-import { Leaderboards, Rivalry } from './components/Screens';
+import { Rivalry } from './components/Screens';
+import { LeaderboardsLive } from './components/LeaderboardsLive';
 import { useCurrentUser } from './lib/auth';
 
 const VISITED_KEY = 'moanyfans:visited';
@@ -32,7 +33,7 @@ const NAV_ITEMS: { id: Route; label: string; icon: string; section: 'main' | 'di
   { id: 'battle',      label: 'ROAST BATTLE',     icon: 'X', section: 'main' },
   { id: 'teams',       label: 'ALL CLUBS',        icon: '⚑', section: 'discover' },
   { id: 'rivalry',     label: 'RIVALRIES',        icon: 'V', section: 'discover', demo: true },
-  { id: 'leaderboard', label: 'LEADERBOARDS',     icon: '#', section: 'discover', demo: true },
+  { id: 'leaderboard', label: 'LEADERBOARDS',     icon: '#', section: 'discover' },
   { id: 'profile',     label: 'YOUR DOSSIER',     icon: '@', section: 'you' },
 ];
 
@@ -474,7 +475,7 @@ export default function App() {
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'live' && <LiveMoanAlong />}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'battle' && <BattlesPage />}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
-        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'leaderboard' && <DemoBanner><Leaderboards /></DemoBanner>}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'leaderboard' && <LeaderboardsLive />}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'admin' && <AdminPage />}
       </main>
 

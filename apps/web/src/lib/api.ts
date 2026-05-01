@@ -294,6 +294,38 @@ export type AdminUserRow = {
   created_at: string;
 };
 
+export type LbPeriod = 'week' | 'month' | 'all';
+export type LbMoanMetric = 'overall' | 'laughs' | 'agrees' | 'ratio' | 'cope';
+export type LbUserMetric =
+  | 'laughs_received' | 'agrees_received' | 'ratio_received' | 'cope_received'
+  | 'total_reactions' | 'moan_count';
+
+export type TopMoan = {
+  id: string;
+  text: string;
+  user_handle: string;
+  user_avatar_seed: string | null;
+  user_avatar_style: string | null;
+  team_short: string | null;
+  team_primary: string | null;
+  laughs: number;
+  agrees: number;
+  ratio: number;
+  cope: number;
+  total: number;
+  created_at: string;
+};
+
+export type TopUser = {
+  handle: string;
+  avatar_seed: string | null;
+  avatar_style: string | null;
+  team_short: string | null;
+  team_primary: string | null;
+  is_verified: boolean;
+  score: number;
+};
+
 export type ClaimRow = {
   id: string;
   handle: string;
@@ -416,6 +448,10 @@ export const api = {
   adminReleaseHandle: (handle: string) =>
     request<{ status: string }>(`/admin/reserved-handles/${encodeURIComponent(handle)}/release`,
       { method: 'POST' }),
+  topMoans: (period: LbPeriod = 'week', metric: LbMoanMetric = 'overall', limit = 10) =>
+    request<TopMoan[]>(`/leaderboards/top-moans?period=${period}&metric=${metric}&limit=${limit}`),
+  topUsers: (period: LbPeriod = 'week', metric: LbUserMetric = 'laughs_received', limit = 10) =>
+    request<TopUser[]>(`/leaderboards/top-users?period=${period}&metric=${metric}&limit=${limit}`),
   adminReReserveHandle: (handle: string) =>
     request<{ status: string }>(`/admin/reserved-handles/${encodeURIComponent(handle)}/reserve`,
       { method: 'POST' }),

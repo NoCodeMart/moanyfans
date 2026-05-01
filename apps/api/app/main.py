@@ -12,8 +12,8 @@ mimetypes.add_type("image/webp", ".webp")
 from .config import get_settings
 from .db import lifespan
 from .routers import (
-    admin, auth, battles, claims, fixtures, health, me, media, moans, notifications, push, search,
-    seo, share, tags, teams, users, waitlist,
+    admin, auth, battles, claims, fixtures, health, leaderboards, me, media, moans, notifications,
+    push, search, seo, share, tags, teams, users, waitlist,
 )
 from .services.media import MEDIA_DIR
 
@@ -98,6 +98,7 @@ app.include_router(push.router)
 app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(claims.router)
+app.include_router(leaderboards.router)
 app.include_router(waitlist.router)
 
 # Serve uploaded images. The directory lives outside the source tree (Docker volume)
