@@ -248,6 +248,11 @@ async def _apply_live_update(
     new_home = latest.home_score or 0
     new_away = latest.away_score or 0
     new_status = latest.status
+    # Never demote LIVE → SCHEDULED. Once we've opened the room (whether by
+    # real kickoff or pre-match window), keep it open. Upstream may briefly
+    # report SCHEDULED for not-yet-real fixtures or stale data.
+    if prev_status == "LIVE" and new_status == "SCHEDULED":
+        new_status = "LIVE"
     elapsed = (datetime.now(UTC) - latest.kickoff_at).total_seconds() / 60
     minute = max(0, min(95, int(elapsed))) if new_status == "LIVE" else (0 if new_status == "SCHEDULED" else 90)
     posted = 0
