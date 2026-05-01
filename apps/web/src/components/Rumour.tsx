@@ -88,10 +88,11 @@ export function RumourBanner({ moan }: { moan: Moan }) {
     ? { label: '✓ CONFIRMED', bg: 'var(--green, #06a77d)', color: 'var(--cream)' }
     : status === 'BUSTED'
     ? { label: '✗ BUSTED', bg: 'var(--red, #e63946)', color: 'var(--cream)' }
-    : { label: '🔮 UNCONFIRMED', bg: 'var(--cream-2, #f0ede3)', color: 'var(--ink)' };
+    : { label: '🔮 UNCONFIRMED', bg: 'var(--ink)', color: 'var(--cream)' };
   return (
     <div style={{
-      background: 'var(--ink)', color: 'var(--cream)',
+      background: 'var(--cream-2, #f0ede3)', color: 'var(--ink)',
+      border: '2px solid var(--ink)',
       padding: 12, marginBottom: 8,
       display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center',
       fontFamily: 'var(--font-display)', fontSize: 14,
@@ -107,13 +108,21 @@ export function RumourBanner({ moan }: { moan: Moan }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 6,
                          fontFamily: 'var(--font-mono)', fontSize: 12 }}>
           {moan.rumour_from && (
-            <span style={{ color: moan.rumour_from.primary_color ?? 'var(--cream)' }}>
+            <span style={{
+              padding: '2px 8px',
+              background: moan.rumour_from.primary_color ?? 'var(--ink)',
+              color: 'var(--cream)',
+            }}>
               {moan.rumour_from.short_name}
             </span>
           )}
           {(moan.rumour_from || moan.rumour_to) && <span style={{ opacity: 0.5 }}>→</span>}
           {moan.rumour_to && (
-            <span style={{ color: moan.rumour_to.primary_color ?? 'var(--cream)', fontWeight: 700 }}>
+            <span style={{
+              padding: '2px 8px', fontWeight: 700,
+              background: moan.rumour_to.primary_color ?? 'var(--ink)',
+              color: 'var(--cream)',
+            }}>
               {moan.rumour_to.short_name}
             </span>
           )}
@@ -126,8 +135,9 @@ export function RumourBanner({ moan }: { moan: Moan }) {
       )}
       {moan.rumour_source_url && (
         <a href={moan.rumour_source_url} target="_blank" rel="noreferrer"
-           style={{ marginLeft: 'auto', color: 'var(--cream)',
-                    fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.8 }}>
+           style={{ marginLeft: 'auto', color: 'var(--ink)',
+                    fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.7,
+                    textDecoration: 'underline' }}>
           source ↗
         </a>
       )}
@@ -170,12 +180,16 @@ function RumourVoteBar({ moan }: { moan: Moan }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['feed'] });
     },
+    onError: (err) => {
+      // Surface what's wrong instead of silently doing nothing.
+      window.alert(`Couldn't update rumour status: ${(err as Error).message}`);
+    },
   });
 
   return (
     <div style={{
       flexBasis: '100%', display: 'flex', flexDirection: 'column', gap: 8,
-      marginTop: 4, paddingTop: 10, borderTop: '1px dashed rgba(245,241,232,0.25)',
+      marginTop: 4, paddingTop: 10, borderTop: '1px dashed rgba(10,9,8,0.2)',
     }}>
       {/* Vote buttons */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -191,7 +205,7 @@ function RumourVoteBar({ moan }: { moan: Moan }) {
               style={{
                 padding: '4px 10px', cursor: isResolved ? 'default' : 'pointer',
                 background: active ? opt.tone : 'transparent',
-                color: active ? 'var(--cream)' : 'var(--cream)',
+                color: active ? 'var(--cream)' : 'var(--ink)',
                 border: `2px solid ${opt.tone}`,
                 fontFamily: 'var(--font-mono)', fontSize: 11,
                 letterSpacing: '0.05em',
@@ -225,12 +239,12 @@ function RumourVoteBar({ moan }: { moan: Moan }) {
           <button type="button" disabled={stamp.isPending}
             onClick={() => stamp.mutate(moan.rumour_status === 'CONFIRMED' ? null : 'CONFIRMED')}
             style={adminBtn(moan.rumour_status === 'CONFIRMED', 'var(--green, #06a77d)')}>
-            ✓ CONFIRM
+            {stamp.isPending ? '…' : '✓ CONFIRM'}
           </button>
           <button type="button" disabled={stamp.isPending}
             onClick={() => stamp.mutate(moan.rumour_status === 'BUSTED' ? null : 'BUSTED')}
             style={adminBtn(moan.rumour_status === 'BUSTED', 'var(--red, #e63946)')}>
-            ✗ BUST
+            {stamp.isPending ? '…' : '✗ BUST'}
           </button>
         </div>
       )}
@@ -242,7 +256,7 @@ function adminBtn(active: boolean, tone: string): CSSProperties {
   return {
     padding: '2px 8px',
     background: active ? tone : 'transparent',
-    color: 'var(--cream)',
+    color: active ? 'var(--cream)' : 'var(--ink)',
     border: `1px solid ${tone}`,
     fontFamily: 'var(--font-mono)', fontSize: 10,
     letterSpacing: '0.05em', cursor: 'pointer',
