@@ -6,7 +6,14 @@ export function mediaUrl(path: string | null | undefined): string | null {
 }
 
 export type ReactionKind = 'laughs' | 'agrees' | 'cope' | 'ratio';
-export type MoanKind = 'MOAN' | 'ROAST' | 'BANTER';
+export type MoanKind = 'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR';
+
+export type RumourTeam = {
+  slug: string;
+  name: string;
+  short_name: string;
+  primary_color: string | null;
+};
 export type MoanStatus = 'PUBLISHED' | 'HELD' | 'REJECTED' | 'REMOVED';
 
 export type CurrentUser = {
@@ -145,6 +152,12 @@ export type Moan = {
   media_h: number | null;
   media_mime: string | null;
   created_at: string;
+  rumour_player?: string | null;
+  rumour_from?: RumourTeam | null;
+  rumour_to?: RumourTeam | null;
+  rumour_fee?: string | null;
+  rumour_source_url?: string | null;
+  rumour_status?: string | null;
 };
 
 export type MediaUpload = {
@@ -241,6 +254,11 @@ export type CreateMoan = {
   media_w?: number;
   media_h?: number;
   media_mime?: string;
+  rumour_player?: string;
+  rumour_from_slug?: string;
+  rumour_to_slug?: string;
+  rumour_fee?: string;
+  rumour_source_url?: string;
 };
 
 export type ThreadItem = {

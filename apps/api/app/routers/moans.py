@@ -42,6 +42,13 @@ class UserRef(BaseModel):
     is_house_account: bool = False
 
 
+class RumourTeam(BaseModel):
+    slug: str
+    name: str
+    short_name: str
+    primary_color: str | None = None
+
+
 class MoanOut(BaseModel):
     id: str
     user: UserRef
@@ -65,6 +72,13 @@ class MoanOut(BaseModel):
     media_h: int | None = None
     media_mime: str | None = None
     created_at: str  # ISO 8601
+    # Transfer rumour fields — populated only when kind == 'RUMOUR'
+    rumour_player: str | None = None
+    rumour_from: RumourTeam | None = None
+    rumour_to: RumourTeam | None = None
+    rumour_fee: str | None = None
+    rumour_source_url: str | None = None
+    rumour_status: str | None = None  # CONFIRMED | BUSTED | null (pending)
 
 
 class CreateMoan(BaseModel):
@@ -80,6 +94,12 @@ class CreateMoan(BaseModel):
     media_w: int | None = Field(default=None, ge=1, le=10_000)
     media_h: int | None = Field(default=None, ge=1, le=10_000)
     media_mime: str | None = Field(default=None, max_length=40)
+    # Transfer rumour structured fields (only used when kind == 'RUMOUR')
+    rumour_player: str | None = Field(default=None, max_length=80)
+    rumour_from_slug: str | None = Field(default=None, max_length=40)
+    rumour_to_slug: str | None = Field(default=None, max_length=40)
+    rumour_fee: str | None = Field(default=None, max_length=60)
+    rumour_source_url: str | None = Field(default=None, max_length=300)
 
 
 class ReactionRequest(BaseModel):
@@ -120,11 +140,22 @@ SELECT
   )                                   AS tag_slugs,
   (SELECT kind FROM reactions r
      WHERE r.moan_id = m.id AND r.user_id = $1
-     LIMIT 1)                         AS your_reaction
+     LIMIT 1)                         AS your_reaction,
+  m.rumour_player, m.rumour_fee, m.rumour_source_url, m.rumour_status,
+  rft.slug          AS rumour_from_slug,
+  rft.name          AS rumour_from_name,
+  rft.short_name    AS rumour_from_short,
+  rft.primary_color AS rumour_from_primary,
+  rtt.slug          AS rumour_to_slug,
+  rtt.name          AS rumour_to_name,
+  rtt.short_name    AS rumour_to_short,
+  rtt.primary_color AS rumour_to_primary
 FROM moans m
 JOIN users u           ON u.id = m.user_id
 LEFT JOIN teams t      ON t.id = m.team_id
 LEFT JOIN users tu     ON tu.id = m.target_user_id
+LEFT JOIN teams rft    ON rft.id = m.rumour_from_team
+LEFT JOIN teams rtt    ON rtt.id = m.rumour_to_team
 """
 
 
@@ -178,6 +209,20 @@ def _row_to_moan(row: asyncpg.Record) -> MoanOut:
         media_h=row["media_h"],
         media_mime=row["media_mime"],
         created_at=row["created_at"].isoformat(),
+        rumour_player=row.get("rumour_player"),
+        rumour_fee=row.get("rumour_fee"),
+        rumour_source_url=row.get("rumour_source_url"),
+        rumour_status=row.get("rumour_status"),
+        rumour_from=(RumourTeam(
+            slug=row["rumour_from_slug"], name=row["rumour_from_name"],
+            short_name=row["rumour_from_short"],
+            primary_color=row["rumour_from_primary"],
+        ) if row.get("rumour_from_slug") else None),
+        rumour_to=(RumourTeam(
+            slug=row["rumour_to_slug"], name=row["rumour_to_name"],
+            short_name=row["rumour_to_short"],
+            primary_color=row["rumour_to_primary"],
+        ) if row.get("rumour_to_slug") else None),
     )
 
 
@@ -353,21 +398,42 @@ async def create_moan(
     mod = await moderate_moan(body.text)
     new_status = "HELD" if mod.should_hold else "PUBLISHED"
 
+    # Resolve rumour team slugs → IDs (only if RUMOUR kind)
+    rumour_from_id: str | None = None
+    rumour_to_id: str | None = None
+    if body.kind == "RUMOUR":
+        async with pool.acquire() as conn:
+            if body.rumour_from_slug:
+                rumour_from_id = await conn.fetchval(
+                    "SELECT id::text FROM teams WHERE slug = $1", body.rumour_from_slug,
+                )
+                if not rumour_from_id:
+                    raise HTTPException(400, f"Unknown from-team slug: {body.rumour_from_slug}")
+            if body.rumour_to_slug:
+                rumour_to_id = await conn.fetchval(
+                    "SELECT id::text FROM teams WHERE slug = $1", body.rumour_to_slug,
+                )
+                if not rumour_to_id:
+                    raise HTTPException(400, f"Unknown to-team slug: {body.rumour_to_slug}")
+
     async with pool.acquire() as conn, conn.transaction():
         new_id = await conn.fetchval(
             """
             INSERT INTO moans (user_id, team_id, target_user_id, parent_moan_id, kind, status,
               text, rage_level, moderation_score, moderation_reason,
               fixture_id, match_minute, side,
-              media_path, media_w, media_h, media_mime)
+              media_path, media_w, media_h, media_mime,
+              rumour_player, rumour_from_team, rumour_to_team, rumour_fee, rumour_source_url)
             VALUES ($1, $2, $3, $4, $5, $6::moan_status, $7, $8, $9, $10, $11, $12, $13,
-              $14, $15, $16, $17)
+              $14, $15, $16, $17, $18, $19, $20, $21, $22)
             RETURNING id::text
             """,
             user.id, team_id, target_id, body.parent_moan_id, body.kind, new_status,
             body.text, body.rage_level, mod.score, mod.reason,
             body.fixture_id, match_minute, body.side,
             body.media_path, body.media_w, body.media_h, body.media_mime,
+            body.rumour_player, rumour_from_id, rumour_to_id,
+            body.rumour_fee, body.rumour_source_url,
         )
         # Tags
         slugs = extract_tags(body.text)

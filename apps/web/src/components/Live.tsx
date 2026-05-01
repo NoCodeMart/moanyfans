@@ -12,6 +12,7 @@ import {
   useTeams, useTrendingTags, useUpdateMe,
 } from '../lib/hooks';
 import { TeamCrest } from './Crest';
+import { RumourBanner, RumourFields } from './Rumour';
 import { currentSubscription, pushSupported, subscribePush, unsubscribePush } from '../lib/push';
 
 // Default handler when a MoanCard is rendered outside the App shell —
@@ -317,6 +318,7 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
       </header>
 
       <div className="moan-body">
+        {moan.kind === 'RUMOUR' && <RumourBanner moan={moan} />}
         <p className="moan-text"
            onClick={openSelf}
            style={{
@@ -531,10 +533,11 @@ export function Feed({
 
 // ── Composer modal (POST to API) ────────────────────────────────────────────
 
-const KINDS: { key: 'MOAN' | 'ROAST' | 'BANTER'; placeholder: string }[] = [
+const KINDS: { key: 'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR'; placeholder: string }[] = [
   { key: 'MOAN',   placeholder: 'GET IT ALL OFF YOUR CHEST. EVERY GRIEVANCE.' },
   { key: 'ROAST',  placeholder: 'PUT THEM ON BLAST. NO HOLDS BARRED.' },
   { key: 'BANTER', placeholder: "DROP THE BANTER. MAKE THEM LAUGH. MAKE THEM CRY." },
+  { key: 'RUMOUR', placeholder: "DROP THE LATEST WORD ON THE GRAPEVINE. SOURCE IT IF YOU CAN." },
 ];
 
 export function Composer({ open, onClose, replyTo }: {
@@ -737,13 +740,19 @@ function ComposerForm({
   const { user } = useCurrentUser();
   const { data: teams = [] } = useTeams();
   const create = useCreateMoan();
-  const [kind, setKind] = useState<'MOAN' | 'ROAST' | 'BANTER'>('MOAN');
+  const [kind, setKind] = useState<'MOAN' | 'ROAST' | 'BANTER' | 'RUMOUR'>('MOAN');
   const [teamSlug, setTeamSlug] = useState<string>(() => user?.team_slug ?? '');
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<boolean>(variant === 'modal');
   const [media, setMedia] = useState<MediaUpload | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Rumour-only fields
+  const [rumourPlayer, setRumourPlayer] = useState('');
+  const [rumourFromSlug, setRumourFromSlug] = useState('');
+  const [rumourToSlug, setRumourToSlug] = useState('');
+  const [rumourFee, setRumourFee] = useState('');
+  const [rumourSourceUrl, setRumourSourceUrl] = useState('');
 
   useEffect(() => {
     if (!teamSlug && user?.team_slug) setTeamSlug(user.team_slug);
@@ -770,6 +779,13 @@ function ComposerForm({
         media_w: media?.media_w,
         media_h: media?.media_h,
         media_mime: media?.media_mime,
+        ...(kind === 'RUMOUR' ? {
+          rumour_player: rumourPlayer.trim() || undefined,
+          rumour_from_slug: rumourFromSlug || undefined,
+          rumour_to_slug: rumourToSlug || undefined,
+          rumour_fee: rumourFee.trim() || undefined,
+          rumour_source_url: rumourSourceUrl.trim() || undefined,
+        } : {}),
       });
       if (replyTo) {
         qc.invalidateQueries({ queryKey: ['moan', replyTo.moanId, 'replies'] });
@@ -796,6 +812,16 @@ function ComposerForm({
           {expanded && (
             <TeamPicker teams={teams} selected={selectedTeam}
                          onPick={(slug) => setTeamSlug(slug ?? '')} />
+          )}
+          {expanded && kind === 'RUMOUR' && (
+            <RumourFields
+              teams={teams}
+              player={rumourPlayer} setPlayer={setRumourPlayer}
+              fromSlug={rumourFromSlug} setFromSlug={setRumourFromSlug}
+              toSlug={rumourToSlug} setToSlug={setRumourToSlug}
+              fee={rumourFee} setFee={setRumourFee}
+              sourceUrl={rumourSourceUrl} setSourceUrl={setRumourSourceUrl}
+            />
           )}
           <textarea
             className="composer-input"

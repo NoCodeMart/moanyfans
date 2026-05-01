@@ -13,6 +13,7 @@ import { TeamFeed } from './components/TeamFeed';
 import { UserProfileView } from './components/UserProfile';
 import { Rivalry } from './components/Screens';
 import { LeaderboardsLive } from './components/LeaderboardsLive';
+import { TransferRoom } from './components/Rumour';
 import { useCurrentUser } from './lib/auth';
 
 const VISITED_KEY = 'moanyfans:visited';
@@ -25,14 +26,14 @@ const PALETTES: Record<string, Palette> = {
   newsprint: { red: '#9d0208', orange: '#dc2f02', yellow: '#e9c46a', blue: '#264653' },
 };
 
-type Route = 'feed' | 'live' | 'battle' | 'rivalry' | 'leaderboard' | 'profile' | 'teams' | 'admin';
+type Route = 'feed' | 'live' | 'battle' | 'rivalry' | 'leaderboard' | 'profile' | 'teams' | 'admin' | 'transfers';
 
 const NAV_ITEMS: { id: Route; label: string; icon: string; section: 'main' | 'discover' | 'you'; badge?: string; demo?: boolean }[] = [
   { id: 'feed',        label: 'THE FEED',         icon: 'F', section: 'main' },
   { id: 'live',        label: 'LIVE MOAN-ALONG',  icon: '●', section: 'main', badge: 'LIVE' },
   { id: 'battle',      label: 'ROAST BATTLE',     icon: 'X', section: 'main' },
   { id: 'teams',       label: 'ALL CLUBS',        icon: '⚑', section: 'discover' },
-  { id: 'rivalry',     label: 'RIVALRIES',        icon: 'V', section: 'discover', demo: true },
+  { id: 'transfers',   label: 'TRANSFER ROOM',    icon: '£', section: 'discover' },
   { id: 'leaderboard', label: 'LEADERBOARDS',     icon: '#', section: 'discover' },
   { id: 'profile',     label: 'YOUR DOSSIER',     icon: '@', section: 'you' },
 ];
@@ -476,6 +477,7 @@ export default function App() {
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'battle' && <BattlesPage />}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'rivalry' && <DemoBanner><Rivalry /></DemoBanner>}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'leaderboard' && <LeaderboardsLive />}
+        {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'transfers' && <TransferRoom />}
         {!activeTag && !activeTeam && !activeUser && !activeMoan && route === 'admin' && <AdminPage />}
       </main>
 
