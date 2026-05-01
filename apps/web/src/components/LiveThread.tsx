@@ -53,6 +53,7 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
         awayScore={f.away_score}
         status={liveStatus}
         minute={minute}
+        period={f.period ?? null}
         competition={f.competition}
         onBack={onClose}
       />
@@ -277,14 +278,20 @@ const LiveComposer = memo(function LiveComposer({
 
 function ScoreBanner({
   homeShort, homePrimary, awayShort, awayPrimary,
-  homeScore, awayScore, status, minute, competition, onBack,
+  homeScore, awayScore, status, minute, period, competition, onBack,
 }: {
   homeShort: string; homePrimary: string;
   awayShort: string; awayPrimary: string;
   homeScore: number | null; awayScore: number | null;
   status: string; minute: number;
+  period: '1H' | 'HT' | '2H' | 'FT' | null;
   competition: string; onBack: () => void;
 }) {
+  const liveLabel =
+    period === 'HT' ? '⏸ HALF TIME'
+    : status === 'LIVE' ? `● LIVE · ${minute}'`
+    : status === 'FT' ? 'FULL TIME'
+    : 'SCHEDULED';
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: '1fr auto 1fr',
@@ -302,10 +309,9 @@ function ScoreBanner({
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
                        letterSpacing: '0.15em', marginBottom: 2,
-                       color: status === 'LIVE' ? 'var(--red)' : 'var(--ink)' }}>
-          {status === 'LIVE' ? `● LIVE · ${minute}'`
-            : status === 'FT' ? 'FULL TIME'
-            : 'SCHEDULED'}
+                       color: period === 'HT' ? 'var(--blue)'
+                              : status === 'LIVE' ? 'var(--red)' : 'var(--ink)' }}>
+          {liveLabel}
         </div>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 48, lineHeight: 1 }}>
           {homeScore ?? '—'} <span style={{ opacity: 0.4 }}>·</span> {awayScore ?? '—'}

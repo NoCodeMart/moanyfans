@@ -200,6 +200,7 @@ export type Fixture = {
   home_score: number | null;
   away_score: number | null;
   minute_estimate: number | null;
+  period?: '1H' | 'HT' | '2H' | 'FT' | null;
 };
 
 export type LiveEvent = {

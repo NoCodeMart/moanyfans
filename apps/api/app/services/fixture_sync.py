@@ -290,7 +290,19 @@ async def _apply_live_update(
     if prev_status == "LIVE" and new_status == "SCHEDULED":
         new_status = "LIVE"
     elapsed = (datetime.now(UTC) - latest.kickoff_at).total_seconds() / 60
-    minute = max(0, min(95, int(elapsed))) if new_status == "LIVE" else (0 if new_status == "SCHEDULED" else 90)
+    # Match clock with HT pause: 1H clock = elapsed, HT freezes at 45',
+    # 2H clock = elapsed - 17 (15-min HT + ~2 stoppage). Mirrors the read
+    # path in routers/fixtures.py so events post at the right minute.
+    if new_status != "LIVE":
+        minute = 0 if new_status == "SCHEDULED" else 90
+    elif elapsed <= 47:
+        minute = max(0, int(elapsed))
+    elif elapsed < 62:
+        minute = 45
+    elif elapsed <= 110:
+        minute = int(elapsed - 17)
+    else:
+        minute = 95
     posted = 0
 
     home_disp = _display_name(fixture_row["home_name"])

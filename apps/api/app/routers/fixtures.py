@@ -34,6 +34,7 @@ class FixtureOut(BaseModel):
     home_score: int | None = None
     away_score: int | None = None
     minute_estimate: int | None = None  # derived for live fixtures
+    period: str | None = None  # 1H | HT | 2H | FT — derived for live fixtures
 
 
 class LiveEventOut(BaseModel):
@@ -80,13 +81,30 @@ def _fixture_from_row(row) -> FixtureOut:  # noqa: ANN001
     if kickoff.tzinfo is None:
         kickoff = kickoff.replace(tzinfo=UTC)
     minute_estimate: int | None = None
+    period: str | None = None
     if row["status"] == "LIVE":
         elapsed = (datetime.now(UTC) - kickoff).total_seconds() / 60
-        # Pre-match window (room is open before kickoff) → minute 0
+        # Estimated match clock — TheSportsDB free tier doesn't give half-time
+        # state, so we approximate: 45-min halves with a 15-min HT break.
+        #   elapsed  0 – 47   → first half (allow ~2 min stoppage)
+        #   elapsed 47 – 62   → half-time (clock pauses on 45')
+        #   elapsed 62 – 110  → second half (clock = elapsed - 17)
+        #   elapsed 110+      → over (final whistle imminent)
         if elapsed < 0:
             minute_estimate = 0
-        elif elapsed <= 130:
+            period = "1H"
+        elif elapsed <= 47:
             minute_estimate = int(elapsed)
+            period = "1H"
+        elif elapsed < 62:
+            minute_estimate = 45
+            period = "HT"
+        elif elapsed <= 110:
+            minute_estimate = int(elapsed - 17)
+            period = "2H"
+        else:
+            minute_estimate = 95
+            period = "2H"
     return FixtureOut(
         id=row["id"],
         competition=row["competition"],
@@ -95,6 +113,7 @@ def _fixture_from_row(row) -> FixtureOut:  # noqa: ANN001
         home_score=row["home_score"],
         away_score=row["away_score"],
         minute_estimate=minute_estimate,
+        period=period,
         home_team=TeamRef(
             id=row["home_id"], slug=row["home_slug"], name=row["home_name"],
             short_name=row["home_short"],

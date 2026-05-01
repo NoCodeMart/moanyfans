@@ -77,6 +77,55 @@ async def _advance_fixtures(conn: asyncpg.Connection) -> tuple[int, int]:
             "VALUES ($1, 0, $2, 'system')",
             row["id"], opener,
         )
+    # Half-time / second-half opener events. Idempotent via a unique-ish text
+    # marker we match on so we don't double-post if the scheduler tick lands
+    # twice in the same minute.
+    ht_due = await conn.fetch(
+        """
+        SELECT f.id, f.kickoff_at,
+               ht.short_name AS home, at.short_name AS away
+          FROM fixtures f
+          JOIN teams ht ON ht.id = f.home_team_id
+          JOIN teams at ON at.id = f.away_team_id
+         WHERE f.status = 'LIVE'
+           AND f.kickoff_at <= now() - interval '47 minutes'
+           AND f.kickoff_at >  now() - interval '62 minutes'
+           AND NOT EXISTS (
+             SELECT 1 FROM live_thread_events e
+              WHERE e.fixture_id = f.id AND e.text LIKE 'HALF TIME%'
+           )
+        """,
+    )
+    for row in ht_due:
+        await conn.execute(
+            "INSERT INTO live_thread_events (fixture_id, minute, text, source) "
+            "VALUES ($1, 45, $2, 'system')",
+            row["id"],
+            f"HALF TIME — {row['home']} vs {row['away']}. "
+            "15 minutes to get a brew on and slag off the manager.",
+        )
+    sh_due = await conn.fetch(
+        """
+        SELECT f.id, ht.short_name AS home, at.short_name AS away
+          FROM fixtures f
+          JOIN teams ht ON ht.id = f.home_team_id
+          JOIN teams at ON at.id = f.away_team_id
+         WHERE f.status = 'LIVE'
+           AND f.kickoff_at <= now() - interval '62 minutes'
+           AND f.kickoff_at >  now() - interval '77 minutes'
+           AND NOT EXISTS (
+             SELECT 1 FROM live_thread_events e
+              WHERE e.fixture_id = f.id AND e.text LIKE 'SECOND HALF%'
+           )
+        """,
+    )
+    for row in sh_due:
+        await conn.execute(
+            "INSERT INTO live_thread_events (fixture_id, minute, text, source) "
+            "VALUES ($1, 46, $2, 'system')",
+            row["id"],
+            f"SECOND HALF — back underway. {row['home']} vs {row['away']}, 45 to go.",
+        )
     finished = await conn.fetch(
         "UPDATE fixtures SET status = 'FT' "
         "WHERE status = 'LIVE' AND kickoff_at <= now() - interval '120 minutes' RETURNING id",

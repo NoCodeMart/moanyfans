@@ -224,7 +224,10 @@ function FixtureStrip({
                 marginBottom: 4, opacity: 0.7,
               }}>
                 {f.competition.toUpperCase()}
-                {isLive && f.minute_estimate != null && (
+                {isLive && f.period === 'HT' && (
+                  <span style={{ color: 'var(--blue)', marginLeft: 6 }}>⏸ HT</span>
+                )}
+                {isLive && f.period !== 'HT' && f.minute_estimate != null && (
                   <span style={{ color: 'var(--red)', marginLeft: 6 }}>● {f.minute_estimate}'</span>
                 )}
                 {f.status === 'SCHEDULED' && (
