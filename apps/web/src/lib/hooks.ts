@@ -107,7 +107,8 @@ export function useFixture(id: string | null) {
     queryKey: ['fixture', id],
     queryFn: () => api.getFixture(id!),
     enabled: !!id,
-    refetchInterval: 5000,
+    refetchInterval: 10_000,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -116,7 +117,8 @@ export function useFixtureThread(id: string | null, side?: Side) {
     queryKey: ['fixture-thread', id, side ?? 'all'],
     queryFn: () => api.getFixtureThread(id!, side),
     enabled: !!id,
-    refetchInterval: 3000,
+    refetchInterval: 5_000,
+    placeholderData: (prev) => prev,
   });
 }
 

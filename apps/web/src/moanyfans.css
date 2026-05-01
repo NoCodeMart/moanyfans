@@ -1129,11 +1129,10 @@ body[data-dark="1"] {
 }
 .live-now { color: var(--red); font-weight: 700; opacity: 1; }
 
-/* live pulse for "● LIVE NOW" headers */
+/* live pulse for "● LIVE NOW" headers — subtle breath, not a flash */
 @keyframes pulseFlash {
-  0%, 70% { opacity: 1; }
-  85% { opacity: 0.4; }
-  100% { opacity: 1; }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.78; }
 }
 
 /* ═══ MOBILE / RESPONSIVE ═══ */

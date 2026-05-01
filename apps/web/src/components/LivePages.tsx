@@ -11,6 +11,12 @@ import { useCurrentUser } from '../lib/auth';
 import { LiveThread } from './LiveThread';
 
 // ── Time helpers ────────────────────────────────────────────────────────────
+function displayTeamName(t: { name: string; short_name: string }): string {
+  const n = t.name;
+  if (n.startsWith('Manchester ')) return 'Man ' + n.slice(11);
+  return n.replace(/\s+(United|City|Town|Hotspur|Albion|Wanderers|Rovers|FC|& Hove Albion).*$/i, '').trim() || t.short_name;
+}
+
 function timeUntil(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms < 0) return 'STARTED';
@@ -73,15 +79,18 @@ export function LiveMoanAlong() {
     queryKey: ['fixtures', 'LIVE'],
     queryFn: () => api.listFixtures({ status: 'LIVE' }),
     refetchInterval: 30_000,
+    // Keep previous data visible during refetch so the strip doesn't flicker.
+    placeholderData: (prev) => prev,
   });
   const { data: upcoming = [] } = useQuery({
     queryKey: ['fixtures', 'SCHEDULED'],
-    // limit 100 = full backend cap; covers every upcoming fixture across all leagues
     queryFn: () => api.listFixtures({ status: 'SCHEDULED', limit: 100 }),
+    placeholderData: (prev) => prev,
   });
   const { data: past = [] } = useQuery({
     queryKey: ['fixtures', 'FT'],
     queryFn: () => api.listFixtures({ status: 'FT', limit: 12 }),
+    placeholderData: (prev) => prev,
   });
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -191,7 +200,7 @@ function FixtureStrip({
       <h3 style={{
         fontFamily: 'var(--font-display)', fontSize: 20, lineHeight: 1,
         color: titleColor, margin: '0 0 8px',
-        animation: pulse ? 'pulseFlash 1.4s infinite' : undefined,
+        animation: pulse ? 'pulseFlash 2.4s ease-in-out infinite' : undefined,
       }}>{title}</h3>
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
         {fixtures.map(f => {
@@ -224,11 +233,11 @@ function FixtureStrip({
                 {f.status === 'FT' && <span style={{ marginLeft: 6 }}>FT</span>}
               </div>
               <div style={{ fontSize: 18, lineHeight: 1.05 }}>
-                {f.home_team.short_name}
+                {displayTeamName(f.home_team)}
                 {f.home_score != null && <strong style={{ marginLeft: 6 }}>{f.home_score}</strong>}
                 <span style={{ opacity: 0.5, margin: '0 6px' }}>vs</span>
                 {f.away_score != null && <strong style={{ marginRight: 6 }}>{f.away_score}</strong>}
-                {f.away_team.short_name}
+                {displayTeamName(f.away_team)}
               </div>
               {f.status === 'SCHEDULED' && (
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.6, marginTop: 4 }}>

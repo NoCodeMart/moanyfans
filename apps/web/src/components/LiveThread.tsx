@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { ReactionKind, Side } from '../lib/api';
+import type { ReactionKind, Side, TeamRef } from '../lib/api';
 import { useCreateMoan, useFixture, useFixtureThread, useReact } from '../lib/hooks';
+
+// Render the common-knowledge name of a team, not its tabloid nickname.
+// "Leeds United" → "Leeds", "Manchester United" → "Man United",
+// "Tottenham Hotspur" → "Tottenham", "Brighton & Hove Albion" → "Brighton".
+function displayTeam(t: { name: string; short_name: string }): string {
+  const n = t.name;
+  if (n.startsWith('Manchester ')) return 'Man ' + n.slice(11);
+  // Strip common suffixes one at a time
+  return n
+    .replace(/\s+(United|City|Town|Hotspur|Albion|Wanderers|Rovers|FC|& Hove Albion).*$/i, '')
+    .trim() || t.short_name;
+}
+export type _Display = TeamRef;  // satisfy the import
 
 const SIDE_COLORS: Record<Side, string> = {
   HOME: 'var(--blue)',
@@ -57,9 +70,9 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)', minHeight: 600 }}>
       <ScoreBanner
-        homeShort={f.home_team.short_name}
+        homeShort={displayTeam(f.home_team)}
         homePrimary={f.home_team.primary_color}
-        awayShort={f.away_team.short_name}
+        awayShort={displayTeam(f.away_team)}
         awayPrimary={f.away_team.primary_color}
         homeScore={f.home_score}
         awayScore={f.away_score}
@@ -95,8 +108,8 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
                 cursor: 'pointer',
               }}
             >
-              {opt === 'HOME' ? `HOME (${f.home_team.short_name})`
-                : opt === 'AWAY' ? `AWAY (${f.away_team.short_name})`
+              {opt === 'HOME' ? `HOME (${displayTeam(f.home_team)})`
+                : opt === 'AWAY' ? `AWAY (${displayTeam(f.away_team)})`
                 : opt}
             </button>
           );
@@ -114,8 +127,8 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
           <ThreadRow
             key={`${item.type}-${item.moan_id ?? item.created_at}`}
             item={item}
-            homeShort={f.home_team.short_name}
-            awayShort={f.away_team.short_name}
+            homeShort={displayTeam(f.home_team)}
+            awayShort={displayTeam(f.away_team)}
             homePrimary={f.home_team.primary_color}
             awayPrimary={f.away_team.primary_color}
           />
@@ -133,8 +146,8 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
             const colour = s === 'HOME' ? f.home_team.primary_color
               : s === 'AWAY' ? f.away_team.primary_color
               : 'var(--ink)';
-            const label = s === 'HOME' ? f.home_team.short_name
-              : s === 'AWAY' ? f.away_team.short_name
+            const label = s === 'HOME' ? displayTeam(f.home_team)
+              : s === 'AWAY' ? displayTeam(f.away_team)
               : 'NEUTRAL';
             return (
               <button
