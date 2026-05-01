@@ -139,7 +139,41 @@ const LiveComposer = memo(function LiveComposer({
   const create = useCreateMoan();
   const ref = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => { ref.current?.focus(); }, []);
+  useEffect(() => {
+    ref.current?.focus();
+    // DIAGNOSTIC: trace what steals focus from the moan composer.
+    const el = ref.current;
+    if (!el) return;
+    const onBlur = (e: FocusEvent) => {
+      const stack = new Error('blur-trace').stack?.split('\n').slice(1, 4).join('\n');
+      console.warn('[moan-composer] BLUR', {
+        relatedTarget: e.relatedTarget,
+        relatedTag: (e.relatedTarget as HTMLElement)?.tagName,
+        relatedClass: (e.relatedTarget as HTMLElement)?.className,
+        activeElement: document.activeElement?.tagName,
+        activeId: (document.activeElement as HTMLElement)?.id,
+        time: performance.now().toFixed(0),
+        stack,
+      });
+    };
+    const onFocus = () => {
+      console.info('[moan-composer] FOCUS', performance.now().toFixed(0));
+    };
+    el.addEventListener('blur', onBlur);
+    el.addEventListener('focus', onFocus);
+    // Track if the element gets removed from the DOM while we were typing.
+    const mo = new MutationObserver(() => {
+      if (!document.contains(el)) {
+        console.error('[moan-composer] TEXTAREA REMOVED FROM DOM');
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      el.removeEventListener('blur', onBlur);
+      el.removeEventListener('focus', onFocus);
+      mo.disconnect();
+    };
+  }, []);
 
   const submit = async () => {
     const t = (ref.current?.value ?? '').trim();
