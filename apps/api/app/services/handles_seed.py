@@ -430,9 +430,17 @@ PUNDITS: list[str] = [
 ]
 
 
+# ── Owner / family — never available, never auto-released ────────────────
+
+OWNER: list[str] = [
+    "WAYNE_JACKSON", "WAYNEJACKSON",
+    "ASHTON_JACKSON", "ASHTONJACKSON",
+]
+
+
 def all_extras() -> list[tuple[str, str]]:
     """Return (handle, category) pairs for everything in this module."""
-    out: list[tuple[str, str]] = []
+    out: list[tuple[str, str]] = [(h, "owner") for h in OWNER]
     for handles in PL_SQUADS.values():
         out.extend((h, "player") for h in handles)
     out.extend((h, "player") for h in CHAMP_PLAYERS)
