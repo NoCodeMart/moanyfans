@@ -1,24 +1,34 @@
 /**
- * Stack Auth client. Single shared instance — initialised once at module load.
- *
- * The instance is created even when auth is disabled (so React doesn't choke
- * on conditional providers) but `useUser()` will simply never return a user
- * unless someone signs in via the Stack Auth flow.
+ * Stack Auth client. Lazily constructed on first use so the SPA doesn't crash
+ * at module-load time when env vars are missing (e.g. AUTH_ENABLED=false, or
+ * a Vite build that didn't pick up the env). Caller must check `isStackConfigured`
+ * before calling `getStackApp`.
  */
 import { StackClientApp } from '@stackframe/react';
 
 const projectId = import.meta.env.VITE_STACK_PROJECT_ID ?? '';
 const publishableClientKey = import.meta.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY ?? '';
 
-export const stackApp = new StackClientApp({
-  projectId,
-  publishableClientKey,
-  tokenStore: 'cookie',
-  // All sign-in / sign-up routes are mounted at /handler/* (see main.tsx).
-  urls: {
-    home: '/',
-    afterSignIn: '/',
-    afterSignUp: '/',
-    afterSignOut: '/',
-  },
-});
+export const isStackConfigured = !!(projectId && publishableClientKey);
+
+let _stackApp: StackClientApp | null = null;
+
+export function getStackApp(): StackClientApp {
+  if (!isStackConfigured) {
+    throw new Error('Stack Auth is not configured (missing VITE_STACK_PROJECT_ID / VITE_STACK_PUBLISHABLE_CLIENT_KEY)');
+  }
+  if (!_stackApp) {
+    _stackApp = new StackClientApp({
+      projectId,
+      publishableClientKey,
+      tokenStore: 'cookie',
+      urls: {
+        home: '/',
+        afterSignIn: '/',
+        afterSignUp: '/',
+        afterSignOut: '/',
+      },
+    });
+  }
+  return _stackApp;
+}

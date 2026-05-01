@@ -308,9 +308,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // Attach Stack Auth bearer token when auth is enabled and a session exists.
   if (import.meta.env.VITE_AUTH_ENABLED === 'true') {
     try {
-      const { stackApp } = await import('./stack');
-      const token = await stackApp.getAccessToken();
-      if (token) headers.Authorization = `Bearer ${token}`;
+      const { isStackConfigured, getStackApp } = await import('./stack');
+      if (isStackConfigured) {
+        const token = await getStackApp().getAccessToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
     } catch {
       // Stack not initialised / no session — request goes out unauth'd.
     }

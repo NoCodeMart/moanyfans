@@ -6,7 +6,7 @@ import App from './App';
 import { AuthShell } from './components/AuthShell';
 import { ComingSoon } from './components/ComingSoon';
 import { AuthProvider } from './lib/auth';
-import { stackApp } from './lib/stack';
+import { getStackApp, isStackConfigured } from './lib/stack';
 import './moanyfans.css';
 
 const PREVIEW_KEY = 'moanyfans:preview-pass';
@@ -25,7 +25,7 @@ const comingSoon =
   import.meta.env.VITE_COMING_SOON === 'true' &&
   localStorage.getItem(PREVIEW_KEY) !== '1';
 
-const authEnabled = import.meta.env.VITE_AUTH_ENABLED === 'true';
+const authEnabled = import.meta.env.VITE_AUTH_ENABLED === 'true' && isStackConfigured;
 const isHandlerRoute = window.location.pathname.startsWith('/handler');
 
 const queryClient = new QueryClient({
@@ -40,11 +40,12 @@ function Root() {
   // Stack Auth's built-in routes (sign-in, sign-up, password reset, oauth
   // callbacks). Mount it directly when the path matches so we don't need a
   // router for the rest of the app.
-  if (isHandlerRoute) {
+  if (isHandlerRoute && isStackConfigured) {
+    const app = getStackApp();
     return (
-      <StackProvider app={stackApp}>
+      <StackProvider app={app}>
         <StackTheme>
-          <StackHandler app={stackApp} location={window.location.pathname} fullPage />
+          <StackHandler app={app} location={window.location.pathname} fullPage />
         </StackTheme>
       </StackProvider>
     );
@@ -60,8 +61,9 @@ function Root() {
 
   if (!authEnabled) return inner;
 
+  const app = getStackApp();
   return (
-    <StackProvider app={stackApp}>
+    <StackProvider app={app}>
       <StackTheme>
         <QueryClientProvider client={queryClient}>
           <AuthShell>
