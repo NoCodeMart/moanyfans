@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StackHandler, StackProvider, StackTheme } from '@stackframe/react';
-import { StrictMode } from 'react';
+import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { AuthShell } from './components/AuthShell';
@@ -45,7 +45,9 @@ function Root() {
     return (
       <StackProvider app={app}>
         <StackTheme>
-          <StackHandler app={app} location={window.location.pathname} fullPage />
+          <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', fontFamily: 'var(--font-mono)' }}>Loading…</div>}>
+            <StackHandler app={app} location={window.location.pathname} fullPage />
+          </Suspense>
         </StackTheme>
       </StackProvider>
     );
@@ -66,11 +68,13 @@ function Root() {
     <StackProvider app={app}>
       <StackTheme>
         <QueryClientProvider client={queryClient}>
-          <AuthShell>
-            <AuthProvider>
-              <App />
-            </AuthProvider>
-          </AuthShell>
+          <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', fontFamily: 'var(--font-mono)' }}>Loading…</div>}>
+            <AuthShell>
+              <AuthProvider>
+                <App />
+              </AuthProvider>
+            </AuthShell>
+          </Suspense>
         </QueryClientProvider>
       </StackTheme>
     </StackProvider>
