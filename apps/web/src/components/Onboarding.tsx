@@ -7,7 +7,9 @@ const STEPS: Step[] = ['account', 'team', 'firstMoan', 'done'];
 
 export function OnboardingWizard({ onClose }: { onClose: () => void }) {
   const { user, authEnabled } = useCurrentUser();
-  const [step, setStep] = useState<Step>('account');
+  // Stack Auth + AuthShell already handled account creation when authEnabled,
+  // so jump straight to team-pick. Demo mode keeps the legacy account step.
+  const [step, setStep] = useState<Step>(authEnabled ? 'team' : 'account');
 
   // step 1
   const [email, setEmail] = useState('');
@@ -61,13 +63,17 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
       <div className="ob-card" role="dialog" aria-modal="true">
         {/* Step indicator */}
         <div className="ob-progress">
-          {STEPS.slice(0, 3).map((s, i) => (
-            <div key={s} className={'ob-progress-bar ' + (stepIdx >= i ? 'on' : '')} />
-          ))}
+          {(authEnabled ? STEPS.slice(1, 3) : STEPS.slice(0, 3)).map((s, i) => {
+            const visibleIdx = authEnabled ? stepIdx - 1 : stepIdx;
+            return <div key={s} className={'ob-progress-bar ' + (visibleIdx >= i ? 'on' : '')} />;
+          })}
         </div>
 
         <div className="ob-header">
-          <div className="ob-step-no">{step === 'done' ? '✓' : `STEP ${stepIdx + 1} / 3`}</div>
+          <div className="ob-step-no">
+            {step === 'done' ? '✓' :
+             `STEP ${authEnabled ? stepIdx : stepIdx + 1} / ${authEnabled ? 2 : 3}`}
+          </div>
           <button type="button" onClick={onClose} className="ob-skip"
                    aria-label="Skip onboarding">SKIP →</button>
         </div>
@@ -91,7 +97,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
         )}
 
         <div className="ob-footer">
-          {step !== 'account' && step !== 'done' && (
+          {step !== 'account' && step !== 'done' && !(authEnabled && step === 'team') && (
             <button type="button" onClick={back} className="ob-back">← BACK</button>
           )}
           <span style={{ flex: 1 }} />

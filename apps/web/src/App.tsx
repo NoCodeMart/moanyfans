@@ -110,6 +110,16 @@ export default function App() {
   };
 
   const { user, authEnabled, signInUrl } = useCurrentUser();
+
+  // Auto-open onboarding for fresh signups under real auth — they're past
+  // the Stack signup + handle picker but still need to pick their team.
+  // localStorage flag stops it re-firing once they've completed/skipped.
+  useEffect(() => {
+    if (!authEnabled || !user) return;
+    if (user.team_id) return;
+    if (localStorage.getItem(`moanyfans:onboarded:${user.id}`) === '1') return;
+    setOnboardingOpen(true);
+  }, [authEnabled, user?.id, user?.team_id]);
   const headline = 'BIN THE LOT';
   const density: 'compact' | 'regular' | 'comfy' = 'compact';
 
@@ -509,7 +519,10 @@ export default function App() {
       <Composer open={composerOpen} replyTo={replyTo}
                  onClose={() => { setComposerOpen(false); setReplyTo(null); }} />
       <LegalLayer view={legalView} onClose={() => setLegalView(null)} />
-      {onboardingOpen && <OnboardingWizard onClose={() => setOnboardingOpen(false)} />}
+      {onboardingOpen && <OnboardingWizard onClose={() => {
+        if (user?.id) localStorage.setItem(`moanyfans:onboarded:${user.id}`, '1');
+        setOnboardingOpen(false);
+      }} />}
       {searchOpen && (
         <SearchOverlay
           onClose={() => setSearchOpen(false)}
