@@ -46,9 +46,13 @@ async def _close_expired_battles(conn: asyncpg.Connection) -> int:
 
 
 async def _advance_fixtures(conn: asyncpg.Connection) -> tuple[int, int]:
+    # Open the room 15 minutes BEFORE kickoff so pre-match banter has somewhere
+    # to live. minute_estimate stays at 0 until actual kickoff so the UI can
+    # show "PRE-MATCH" instead of a fake clock.
     started = await conn.fetch(
         "UPDATE fixtures SET status = 'LIVE' "
-        "WHERE status = 'SCHEDULED' AND kickoff_at <= now() RETURNING id",
+        "WHERE status = 'SCHEDULED' AND kickoff_at <= now() + interval '15 minutes' "
+        "RETURNING id",
     )
     finished = await conn.fetch(
         "UPDATE fixtures SET status = 'FT' "

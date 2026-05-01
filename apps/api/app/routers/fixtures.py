@@ -82,7 +82,10 @@ def _fixture_from_row(row) -> FixtureOut:  # noqa: ANN001
     minute_estimate: int | None = None
     if row["status"] == "LIVE":
         elapsed = (datetime.now(UTC) - kickoff).total_seconds() / 60
-        if 0 <= elapsed <= 130:
+        # Pre-match window (room is open before kickoff) → minute 0
+        if elapsed < 0:
+            minute_estimate = 0
+        elif elapsed <= 130:
             minute_estimate = int(elapsed)
     return FixtureOut(
         id=row["id"],
