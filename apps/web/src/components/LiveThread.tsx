@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactionKind, Side, TeamRef } from '../lib/api';
 import { useCreateMoan, useFixture, useFixtureThread, useReact } from '../lib/hooks';
 
@@ -190,11 +191,25 @@ const LiveComposer = memo(function LiveComposer({
     }
   };
 
-  return (
+  // Render to a stable container in <body> so polling-driven reconciliation
+  // of the LiveThread subtree can never touch this textarea's DOM node.
+  // Without this the textarea was being detached every 5–10s when the
+  // useFixtureThread / useFixture polls fired, blurring the user mid-sentence.
+  const portalHost = useMemo(() => {
+    let host = document.getElementById('moan-composer-portal');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'moan-composer-portal';
+      document.body.appendChild(host);
+    }
+    return host;
+  }, []);
+
+  return createPortal(
     <div style={{
-      position: 'sticky', bottom: 0,
+      position: 'fixed', bottom: 0, left: 0, right: 0,
       background: 'var(--paper)', borderTop: '4px solid var(--ink)',
-      padding: 12,
+      padding: 12, zIndex: 100,
     }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
         {(['HOME', 'NEUTRAL', 'AWAY'] as Side[]).map(s => {
@@ -255,7 +270,8 @@ const LiveComposer = memo(function LiveComposer({
             opacity: !hasText || create.isPending ? 0.5 : 1,
           }}>{create.isPending ? '…' : 'MOAN'}</button>
       </div>
-    </div>
+    </div>,
+    portalHost,
   );
 });
 
