@@ -7,10 +7,16 @@
  * fields (player, from-team, to-team, fee, source).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api, type Moan, type Team } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 import { MoanCard } from './Live';
+
+// Render the team's real name, not its tabloid nickname
+// ("Leeds United" stays as is; falls back to full name if defined).
+function teamLabel(t: Team): string {
+  return t.name || t.short_name;
+}
 
 // ── Composer fields ────────────────────────────────────────────────────────
 
@@ -49,19 +55,13 @@ export function RumourFields({
       </div>
       <div>
         <div style={labelStyle}>🚪 FROM</div>
-        <select value={fromSlug} onChange={e => setFromSlug(e.target.value)}
-          style={{ ...fieldStyle, width: '100%' }}>
-          <option value="">Anywhere</option>
-          {teams.map(t => <option key={t.slug} value={t.slug}>{t.short_name}</option>)}
-        </select>
+        <TeamCombo teams={teams} value={fromSlug} onChange={setFromSlug}
+          placeholder="Anywhere — type to search" />
       </div>
       <div>
         <div style={labelStyle}>➡️ TO</div>
-        <select value={toSlug} onChange={e => setToSlug(e.target.value)}
-          style={{ ...fieldStyle, width: '100%' }}>
-          <option value="">Anywhere</option>
-          {teams.map(t => <option key={t.slug} value={t.slug}>{t.short_name}</option>)}
-        </select>
+        <TeamCombo teams={teams} value={toSlug} onChange={setToSlug}
+          placeholder="Anywhere — type to search" />
       </div>
       <div>
         <div style={labelStyle}>💷 FEE</div>
@@ -75,6 +75,137 @@ export function RumourFields({
           maxLength={300} placeholder="https://x.com/fabrizioromano/..."
           style={{ ...fieldStyle, width: '100%' }} />
       </div>
+    </div>
+  );
+}
+
+// ── Team typeahead — used by FROM/TO in the rumour composer ────────────────
+
+function TeamCombo({
+  teams, value, onChange, placeholder,
+}: {
+  teams: Team[]; value: string; onChange: (slug: string) => void; placeholder?: string;
+}) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+
+  const selected = useMemo(
+    () => teams.find(t => t.slug === value) ?? null,
+    [teams, value],
+  );
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return teams.slice(0, 50);
+    return teams
+      .filter(t => {
+        const name = (t.name ?? '').toLowerCase();
+        const short = (t.short_name ?? '').toLowerCase();
+        return name.includes(q) || short.includes(q);
+      })
+      .slice(0, 50);
+  }, [teams, query]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const pick = (t: Team | null) => {
+    onChange(t?.slug ?? '');
+    setQuery('');
+    setOpen(false);
+  };
+
+  const inputValue = open ? query : (selected ? teamLabel(selected) : '');
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          type="text"
+          value={inputValue}
+          onFocus={() => { setOpen(true); setQuery(''); setHighlight(0); }}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); setHighlight(0); }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setHighlight(h => Math.min(h + 1, matches.length - 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setHighlight(h => Math.max(h - 1, 0));
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              if (matches[highlight]) pick(matches[highlight]);
+            } else if (e.key === 'Escape') {
+              setOpen(false);
+            }
+          }}
+          placeholder={placeholder ?? 'Type to search…'}
+          autoComplete="off"
+          spellCheck={false}
+          style={{
+            width: '100%', padding: '6px 28px 6px 10px', boxSizing: 'border-box',
+            border: '2px solid var(--ink)', background: 'var(--paper)',
+            fontFamily: 'var(--font-mono)', fontSize: 12,
+          }}
+        />
+        {selected && (
+          <button type="button" onClick={() => pick(null)}
+            aria-label="Clear team"
+            style={{
+              position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+              background: 'transparent', border: 0, cursor: 'pointer',
+              fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--ink)',
+              padding: '0 4px', lineHeight: 1,
+            }}>×</button>
+        )}
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0, zIndex: 20,
+          maxHeight: 240, overflowY: 'auto',
+          background: 'var(--paper)', border: '2px solid var(--ink)',
+          fontFamily: 'var(--font-mono)', fontSize: 12,
+          boxShadow: '4px 4px 0 var(--ink)',
+        }}>
+          {matches.length === 0 && (
+            <div style={{ padding: '8px 10px', opacity: 0.6 }}>No teams match.</div>
+          )}
+          {matches.map((t, i) => {
+            const active = i === highlight;
+            return (
+              <button key={t.slug} type="button"
+                onMouseEnter={() => setHighlight(i)}
+                onClick={() => pick(t)}
+                style={{
+                  display: 'flex', width: '100%', textAlign: 'left',
+                  padding: '6px 10px', gap: 8, alignItems: 'center',
+                  background: active ? 'var(--ink)' : 'transparent',
+                  color: active ? 'var(--cream)' : 'var(--ink)',
+                  border: 0, cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 'inherit',
+                }}>
+                {t.primary_color && (
+                  <span style={{
+                    width: 10, height: 10,
+                    background: t.primary_color, border: '1px solid currentColor',
+                    flexShrink: 0,
+                  }} />
+                )}
+                <span>{teamLabel(t)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -113,7 +244,7 @@ export function RumourBanner({ moan }: { moan: Moan }) {
               background: moan.rumour_from.primary_color ?? 'var(--ink)',
               color: 'var(--cream)',
             }}>
-              {moan.rumour_from.short_name}
+              {moan.rumour_from.name ?? moan.rumour_from.short_name}
             </span>
           )}
           {(moan.rumour_from || moan.rumour_to) && <span style={{ opacity: 0.5 }}>→</span>}
@@ -123,7 +254,7 @@ export function RumourBanner({ moan }: { moan: Moan }) {
               background: moan.rumour_to.primary_color ?? 'var(--ink)',
               color: 'var(--cream)',
             }}>
-              {moan.rumour_to.short_name}
+              {moan.rumour_to.name ?? moan.rumour_to.short_name}
             </span>
           )}
         </span>
