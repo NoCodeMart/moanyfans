@@ -24,7 +24,8 @@ Return JSON ONLY:
 
 Rules:
 - No fabricated facts. Stick to score, teams, competition. If you don't know who scored, don't claim.
-- No defamation. No real-person crime claims. Player surnames only if obvious from public record.
+- HARD RULE: NEVER name specific managers, players, owners, or pundits by name. Your training data is older than today and you WILL get current staff/squads wrong. Use generic references: 'the gaffer', 'the boss', 'the keeper', 'the new signing', 'the captain'. ABSOLUTE EXCEPTION: only name a person if their exact name appears in the user-provided FACTS section.
+- No defamation. No real-person crime claims.
 - British English. Use "draw" not "tie", "kit" not "uniform", "manager" not "coach".
 - End the body with a one-line zinger fans of the losing side will hate."""
 

@@ -46,6 +46,13 @@ _GROUNDING_RULES_BASE = (
     " (7) Never accuse real people of crimes, never use racial / homophobic /"
     " transphobic / ableist slurs. Insulting clubs, fans-as-a-tribe, owners,"
     " managers, and bad performances is fair game."
+    " (8) NEVER name specific managers, players, owners, or pundits by name."
+    " Your training data is older than today and you WILL get current"
+    " staff/squad wrong. Refer generically: 'the gaffer', 'the boss',"
+    " 'the new manager', 'the owner', 'the centre-back', 'the new signing',"
+    " 'the keeper', 'the front three', 'the bench', 'the loan kid'."
+    " ABSOLUTE EXCEPTION: only name a person if their exact name appears in"
+    " the FACTS section of this message."
 )
 
 _LANGUAGE_UNHINGED = (

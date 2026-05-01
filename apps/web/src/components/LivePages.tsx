@@ -134,6 +134,15 @@ export function LiveMoanAlong() {
         />
       )}
 
+      {/* The active LIVE thread renders RIGHT HERE — directly below the LIVE
+          strip — so fans don't have to scroll past upcoming fixtures to find
+          the room they're already in. */}
+      {activeFixture && activeFixture.status === 'LIVE' && (
+        <div style={{ margin: '8px 0 32px' }}>
+          <LiveThread fixtureId={activeFixture.id} onClose={() => setActiveId(null)} />
+        </div>
+      )}
+
       {/* Upcoming — one strip per league, in fixed display order */}
       {populatedLeagues.map(league => (
         <FixtureStrip
@@ -158,11 +167,8 @@ export function LiveMoanAlong() {
         />
       ))}
 
-      {activeFixture && activeFixture.status === 'LIVE' && (
-        <div style={{ marginTop: 24 }}>
-          <LiveThread fixtureId={activeFixture.id} onClose={() => setActiveId(null)} />
-        </div>
-      )}
+      {/* FT recap thread (when a finished game is selected) renders below
+          the recent-FT strips. */}
       {activeFixture && activeFixture.status !== 'LIVE' && (
         <FixtureLiveThread key={activeFixture.id} fixture={activeFixture} />
       )}
