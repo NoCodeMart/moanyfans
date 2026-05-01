@@ -294,6 +294,19 @@ export type AdminUserRow = {
   created_at: string;
 };
 
+export type ClaimRow = {
+  id: string;
+  handle: string;
+  claimant_name: string;
+  email: string;
+  social_proof: string;
+  message: string | null;
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+  review_notes: string | null;
+};
+
 export type ReservedRow = {
   handle: string;
   category: string;
@@ -417,6 +430,18 @@ export const api = {
   onboard: (body: { handle: string; email: string; team_id?: string }) =>
     request<{ id: string; handle: string }>('/auth/onboard', {
       method: 'POST', body: JSON.stringify(body),
+    }),
+  submitHandleClaim: (body: {
+    handle: string; claimant_name: string; email: string;
+    social_proof: string; message?: string;
+  }) => request<{ status: string }>('/claims', {
+    method: 'POST', body: JSON.stringify(body),
+  }),
+  adminListClaims: (status_: 'PENDING' | 'APPROVED' | 'DENIED' = 'PENDING') =>
+    request<ClaimRow[]>(`/admin/claims?status=${status_}`),
+  adminReviewClaim: (id: string, action: 'approve' | 'deny', notes?: string) =>
+    request<{ status: string }>(`/admin/claims/${id}/review`, {
+      method: 'POST', body: JSON.stringify({ action, notes }),
     }),
   followingFeed: (limit = 50) =>
     request<Moan[]>(`/moans?following=true&limit=${limit}`),

@@ -1,9 +1,9 @@
 import { useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type AdminUserRow, type ReportRow, type ReservedRow, type WaitlistRow } from '../lib/api';
+import { api, type AdminUserRow, type ClaimRow, type ReportRow, type ReservedRow, type WaitlistRow } from '../lib/api';
 import { useCurrentUser } from '../lib/auth';
 
-type Tab = 'overview' | 'reports' | 'users' | 'waitlist' | 'reserved';
+type Tab = 'overview' | 'reports' | 'users' | 'waitlist' | 'reserved' | 'claims';
 
 export function AdminPage() {
   const { user, loading } = useCurrentUser();
@@ -24,7 +24,7 @@ export function AdminPage() {
         ADMIN CONSOLE
       </h1>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
-        {(['overview', 'reports', 'users', 'waitlist', 'reserved'] as Tab[]).map(t => (
+        {(['overview', 'reports', 'users', 'waitlist', 'reserved', 'claims'] as Tab[]).map(t => (
           <button key={t} type="button" onClick={() => setTab(t)} style={pillStyle(tab === t)}>
             {t.toUpperCase()}
           </button>
@@ -35,6 +35,110 @@ export function AdminPage() {
       {tab === 'users' && <Users />}
       {tab === 'waitlist' && <Waitlist />}
       {tab === 'reserved' && <Reserved />}
+      {tab === 'claims' && <Claims />}
+    </div>
+  );
+}
+
+function Claims() {
+  const qc = useQueryClient();
+  const [filter, setFilter] = useState<'PENDING' | 'APPROVED' | 'DENIED'>('PENDING');
+  const list = useQuery({
+    queryKey: ['admin', 'claims', filter],
+    queryFn: () => api.adminListClaims(filter),
+  });
+  const review = useMutation({
+    mutationFn: ({ id, action, notes }: { id: string; action: 'approve' | 'deny'; notes?: string }) =>
+      api.adminReviewClaim(id, action, notes),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'claims'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'reserved'] });
+    },
+  });
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        {(['PENDING', 'APPROVED', 'DENIED'] as const).map(s => (
+          <button key={s} type="button" onClick={() => setFilter(s)}
+            style={{
+              padding: '6px 14px', border: '2px solid var(--ink)',
+              background: filter === s ? 'var(--ink)' : 'var(--paper)',
+              color: filter === s ? 'var(--cream)' : 'var(--ink)',
+              fontFamily: 'var(--font-display)', fontSize: 12, cursor: 'pointer',
+            }}>{s}</button>
+        ))}
+      </div>
+      {list.isLoading && <div>Loading…</div>}
+      {!list.isLoading && (list.data?.length ?? 0) === 0 && (
+        <div style={{ padding: 24, opacity: 0.6, fontFamily: 'var(--font-mono)' }}>
+          No {filter.toLowerCase()} claims.
+        </div>
+      )}
+      {list.data?.map(c => <ClaimCard key={c.id} c={c} review={review} />)}
+    </div>
+  );
+}
+
+function ClaimCard({ c, review }: {
+  c: ClaimRow;
+  review: { mutate: (v: { id: string; action: 'approve' | 'deny'; notes?: string }) => void; isPending: boolean };
+}) {
+  const [notes, setNotes] = useState('');
+  return (
+    <div style={{
+      background: 'var(--paper)', border: '2px solid var(--ink)',
+      padding: 14, marginBottom: 12, boxShadow: '3px 3px 0 var(--ink)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>@{c.handle}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.7 }}>
+          claimed by {c.claimant_name} · {c.email}
+        </span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.6 }}>
+          {new Date(c.created_at).toLocaleString('en-GB')}
+        </span>
+      </div>
+      <div style={{ marginBottom: 8, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+        <strong>Proof:</strong>
+        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                       margin: '4px 0 0', padding: 8, background: 'var(--cream)',
+                       border: '1px solid var(--ink)', fontFamily: 'inherit', fontSize: 11 }}>
+          {c.social_proof}
+        </pre>
+      </div>
+      {c.message && (
+        <div style={{ marginBottom: 8, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+          <strong>Message:</strong> {c.message}
+        </div>
+      )}
+      {c.status === 'PENDING' && (
+        <>
+          <input value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="Review notes (optional)"
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '6px 10px',
+              border: '2px solid var(--ink)', background: 'var(--paper)',
+              fontFamily: 'var(--font-mono)', fontSize: 12, marginBottom: 8,
+            }} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" disabled={review.isPending}
+              onClick={() => {
+                if (window.confirm(`Approve claim — release @${c.handle} so ${c.claimant_name} can grab it?`))
+                  review.mutate({ id: c.id, action: 'approve', notes: notes || undefined });
+              }}
+              style={btn('var(--green, #06a77d)', 'var(--cream)')}>APPROVE & RELEASE</button>
+            <button type="button" disabled={review.isPending}
+              onClick={() => review.mutate({ id: c.id, action: 'deny', notes: notes || undefined })}
+              style={btn('var(--red)', 'var(--cream)')}>DENY</button>
+          </div>
+        </>
+      )}
+      {c.status !== 'PENDING' && c.review_notes && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, opacity: 0.7 }}>
+          Notes: {c.review_notes}
+        </div>
+      )}
     </div>
   );
 }
