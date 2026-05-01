@@ -236,7 +236,7 @@ function StepTeam({ selectedSlug, onPick }:
               <span className="ob-team-dot" style={{ background: t.primary_color }} />
               <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: 14,
-                                letterSpacing: '0.02em' }}>{t.short_name}</span>
+                                letterSpacing: '0.02em' }}>{t.name}</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
                                 opacity: 0.6, letterSpacing: '0.05em' }}>
                   {leagueShort(t.league)}

@@ -954,7 +954,7 @@ function TeamPicker({
         {selected ? (
           <>
             <TeamCrest team={selected} size={20} withInitials={false} />
-            Posting about <b>{selected.short_name}</b>
+            Posting about <b>{selected.name}</b>
             <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 4 }}>· change</span>
           </>
         ) : (
@@ -1143,7 +1143,7 @@ export function TeamsPage({ onPickTeam }: { onPickTeam?: (team: Team) => void })
                   <TeamCrest team={t} size={36} />
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {t.short_name}
+                      {t.name}
                     </div>
                     <div style={{
                       fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.05em',

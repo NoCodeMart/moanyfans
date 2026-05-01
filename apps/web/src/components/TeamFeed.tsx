@@ -82,12 +82,12 @@ export function TeamFeed({ slug, onClose, onOpenMoan, onOpenUser }: {
         </div>
       </header>
 
-      <div className="feed-divider"><span>━━━ MOANS · {(t?.short_name ?? slug).toUpperCase()} ━━━</span></div>
+      <div className="feed-divider"><span>━━━ MOANS · {(t?.name ?? slug).toUpperCase()} ━━━</span></div>
 
       {moans.isLoading && <div style={{ fontFamily: 'var(--font-mono)' }}>LOADING…</div>}
       {!moans.isLoading && (moans.data?.length ?? 0) === 0 && (
         <div style={{ fontFamily: 'var(--font-mono)', textAlign: 'center', padding: 32, opacity: 0.55 }}>
-          NO MOANS ABOUT {(t?.short_name ?? slug).toUpperCase()} YET. BE THE FIRST.
+          NO MOANS ABOUT {(t?.name ?? slug).toUpperCase()} YET. BE THE FIRST.
         </div>
       )}
       {moans.data?.map(m => (
