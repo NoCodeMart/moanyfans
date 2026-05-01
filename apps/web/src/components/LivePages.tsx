@@ -200,7 +200,7 @@ function FixtureStrip({
       <h3 style={{
         fontFamily: 'var(--font-display)', fontSize: 20, lineHeight: 1,
         color: titleColor, margin: '0 0 8px',
-        animation: pulse ? 'pulseFlash 2.4s ease-in-out infinite' : undefined,
+        // No animation — was perceived as a screen flash. Static red is enough.
       }}>{title}</h3>
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
         {fixtures.map(f => {
