@@ -191,6 +191,14 @@ const LiveComposer = memo(function LiveComposer({
           placeholder="Drop your moan… (⌘↵ to send)"
           maxLength={500}
           rows={2}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          data-gramm="false"
+          data-gramm_editor="false"
+          data-enable-grammarly="false"
+          data-lt-active="false"
           style={{
             flex: 1, resize: 'vertical', padding: 10,
             border: '2px solid var(--ink)', background: 'var(--paper)',
