@@ -301,12 +301,23 @@ export type WaitlistRow = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  // Attach Stack Auth bearer token when auth is enabled and a session exists.
+  if (import.meta.env.VITE_AUTH_ENABLED === 'true') {
+    try {
+      const { stackApp } = await import('./stack');
+      const token = await stackApp.getAccessToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch {
+      // Stack not initialised / no session — request goes out unauth'd.
+    }
+  }
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers,
     credentials: 'include',
   });
   if (!res.ok) {
@@ -375,6 +386,14 @@ export const api = {
   joinWaitlist: (email: string, source = 'coming-soon') =>
     request<{ status: string }>('/waitlist', {
       method: 'POST', body: JSON.stringify({ email, source }),
+    }),
+  checkHandle: (handle: string) =>
+    request<{ handle: string; available: boolean; reason?: string }>(
+      `/auth/check-handle?handle=${encodeURIComponent(handle)}`,
+    ),
+  onboard: (body: { handle: string; email: string; team_id?: string }) =>
+    request<{ id: string; handle: string }>('/auth/onboard', {
+      method: 'POST', body: JSON.stringify(body),
     }),
   followingFeed: (limit = 50) =>
     request<Moan[]>(`/moans?following=true&limit=${limit}`),

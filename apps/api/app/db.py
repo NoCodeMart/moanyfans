@@ -7,7 +7,7 @@ import structlog
 from fastapi import FastAPI
 
 from .config import get_settings
-from .services import fixture_sync, scheduler
+from .services import fixture_sync, handles, scheduler
 
 log = structlog.get_logger(__name__)
 
@@ -27,6 +27,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     app.state.pool = await init_pool()
     app.state.auth_enforced = settings.auth_enabled
+
+    # Sync the in-code reserved-handles list to the DB. Idempotent — only
+    # inserts new ones, never re-reserves released names.
+    try:
+        async with app.state.pool.acquire() as conn:
+            added = await handles.sync_reserved(conn)
+            if added:
+                log.info("reserved_handles_synced", new=added)
+    except Exception:
+        log.exception("reserved_handles_sync_failed")
 
     background_tasks = [
         asyncio.create_task(scheduler.run(app.state.pool), name="scheduler"),
