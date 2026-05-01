@@ -135,21 +135,22 @@ const LiveComposer = memo(function LiveComposer({
   homeSlug: string; awaySlug: string;
 }) {
   const [side, setSide] = useState<Side>('NEUTRAL');
-  const [text, setText] = useState('');
+  const [hasText, setHasText] = useState(false);
   const create = useCreateMoan();
   const ref = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => { ref.current?.focus(); }, []);
 
   const submit = async () => {
-    const t = text.trim();
+    const t = (ref.current?.value ?? '').trim();
     if (!t) return;
     try {
       await create.mutateAsync({
         kind: 'MOAN', text: t, fixture_id: fixtureId, side,
         team_slug: side === 'HOME' ? homeSlug : side === 'AWAY' ? awaySlug : undefined,
       });
-      setText('');
+      if (ref.current) ref.current.value = '';
+      setHasText(false);
     } catch (err) {
       console.error('moan submit failed', err);
     }
@@ -183,8 +184,9 @@ const LiveComposer = memo(function LiveComposer({
       <div style={{ display: 'flex', gap: 8 }}>
         <textarea
           ref={ref}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          name="moan-composer"
+          defaultValue=""
+          onInput={(e) => setHasText(!!(e.target as HTMLTextAreaElement).value.trim())}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
           }}
@@ -199,6 +201,10 @@ const LiveComposer = memo(function LiveComposer({
           data-gramm_editor="false"
           data-enable-grammarly="false"
           data-lt-active="false"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
+          data-form-type="other"
           style={{
             flex: 1, resize: 'vertical', padding: 10,
             border: '2px solid var(--ink)', background: 'var(--paper)',
@@ -206,13 +212,13 @@ const LiveComposer = memo(function LiveComposer({
           }}
         />
         <button type="button" onClick={submit}
-          disabled={create.isPending || !text.trim()}
+          disabled={create.isPending || !hasText}
           style={{
             background: SIDE_COLORS[side], color: 'var(--cream)',
             border: 'none', cursor: 'pointer',
             fontFamily: 'var(--font-display)', fontSize: 16,
             letterSpacing: '0.05em', padding: '0 24px',
-            opacity: !text.trim() || create.isPending ? 0.5 : 1,
+            opacity: !hasText || create.isPending ? 0.5 : 1,
           }}>{create.isPending ? '…' : 'MOAN'}</button>
       </div>
     </div>
