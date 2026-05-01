@@ -379,13 +379,6 @@ export function MoanCard({ moan, onOpen, onOpenUser, onOpenTeam, onOpenTag, onRe
             <span className="moan-reply-count">{moan.reply_count.toLocaleString()}</span>
           )}
         </button>
-        <button
-          type="button"
-          className="moan-reply-open"
-          onClick={() => (onOpen ? onOpen(moan.id) : window.location.assign(`/m/${moan.id}`))}
-        >
-          {moan.reply_count > 0 ? 'OPEN THREAD →' : 'OPEN'}
-        </button>
         <ShareBar moan={moan} />
         <ReportMoanButton moan={moan} />
         <DeleteMoanButton moan={moan} />
