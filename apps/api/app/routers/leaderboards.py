@@ -28,10 +28,10 @@ UserMetric = Literal[
     "total_reactions", "moan_count",
 ]
 
-_PERIOD_INTERVAL = {
-    "week": "interval '7 days'",
-    "month": "interval '30 days'",
-    "all": None,
+_PERIOD_BOUNDARY = {
+    "week":  "date_trunc('week', now())",   # Monday 00:00 of current ISO week
+    "month": "date_trunc('month', now())",  # 1st 00:00 of current month
+    "all":   None,
 }
 
 
@@ -75,10 +75,16 @@ class Prophet(BaseModel):
 
 
 def _period_clause(period: Period, alias: str = "m") -> str:
-    iv = _PERIOD_INTERVAL[period]
-    if iv is None:
+    """Calendar-week / calendar-month / all-time filter on m.created_at.
+
+    Calendar boundaries (Postgres ISO week starts Monday) so winners get
+    crowned every Monday morning — gives leaderboards a competition feel
+    instead of a rolling stat counter.
+    """
+    boundary = _PERIOD_BOUNDARY[period]
+    if boundary is None:
         return ""
-    return f" AND {alias}.created_at > now() - {iv}"
+    return f" AND {alias}.created_at >= {boundary}"
 
 
 @router.get("/top-moans", response_model=list[TopMoan])
