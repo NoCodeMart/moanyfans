@@ -208,8 +208,12 @@ const LiveComposer = memo(function LiveComposer({
 
   return createPortal(
     <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: 'var(--paper)', borderTop: '4px solid var(--ink)',
+      position: 'fixed', bottom: 16, left: '50%',
+      transform: 'translateX(-50%)',
+      width: 'min(720px, calc(100% - 32px))',
+      background: 'var(--paper)',
+      border: '3px solid var(--ink)',
+      boxShadow: '4px 4px 0 var(--ink)',
       padding: 12, zIndex: 100,
     }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
