@@ -261,7 +261,13 @@ async def sync_live(pool: asyncpg.Pool, client: httpx.AsyncClient) -> dict[str, 
                         AND kickoff_at >= now() - interval '180 minutes'))
             """,
         )
-    for row in rows:
+    for i, row in enumerate(rows):
+        # TheSportsDB free tier caps per-minute requests, so pace ourselves.
+        # 1.2s between calls = max ~50 calls/min; safely under the limit even
+        # at a busy 3pm Saturday slate. Without this we hit HTTP 429s and the
+        # whole live loop stalls for the rest of the cycle.
+        if i > 0:
+            await asyncio.sleep(1.2)
         polled += 1
         latest = await sportsdb.lookup_event(client, row["external_id"])
         if not latest:

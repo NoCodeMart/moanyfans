@@ -189,6 +189,11 @@ async def lookup_event(client: httpx.AsyncClient, external_id: str) -> Event | N
             params={"id": external_id},
             timeout=10,
         )
+        # Quiet log on 429 — we already throttle in the live loop, an
+        # occasional rate-limit ping isn't worth a full traceback in prod.
+        if r.status_code == 429:
+            log.warning("sportsdb_rate_limited", external_id=external_id)
+            return None
         r.raise_for_status()
         payload = r.json() or {}
     except Exception:
