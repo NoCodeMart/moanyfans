@@ -105,9 +105,11 @@ export function LiveMoanAlong() {
   }
 
   const activeFixture = [...live, ...past].find(f => f.id === activeId);
+  const liveByLeague = groupByLeague(live);
   const upcomingByLeague = groupByLeague(upcoming);
   const pastByLeague = groupByLeague(past);
 
+  const liveLeagues = LEAGUE_ORDER.filter(l => (liveByLeague.get(l)?.length ?? 0) > 0);
   // Total upcoming + which leagues are populated
   const populatedLeagues = LEAGUE_ORDER.filter(
     l => (upcomingByLeague.get(l)?.length ?? 0) > 0,
@@ -135,13 +137,17 @@ export function LiveMoanAlong() {
         </div>
       </div>
 
-      {/* Live fixtures (always one strip — usually small, all leagues mixed) */}
-      {live.length > 0 && (
+      {/* Live fixtures — one strip per league so the busy 3pm Saturday
+          slate doesn't smush everything into one rail. */}
+      {liveLeagues.map(league => (
         <FixtureStrip
-          title="● LIVE NOW" titleColor="var(--red)"
-          fixtures={live} activeId={activeId} onPick={setActiveId} pulse
+          key={`live-${league}`}
+          title={`● LIVE NOW · ${LEAGUE_LABEL[league] ?? league.toUpperCase()}`}
+          titleColor="var(--red)"
+          fixtures={liveByLeague.get(league) ?? []}
+          activeId={activeId} onPick={setActiveId} pulse
         />
-      )}
+      ))}
 
       {/* The active LIVE thread renders RIGHT HERE — directly below the LIVE
           strip — so fans don't have to scroll past upcoming fixtures to find
