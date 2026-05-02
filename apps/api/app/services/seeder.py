@@ -285,7 +285,7 @@ async def maybe_seed(pool: asyncpg.Pool) -> bool:
     drown out real users once they arrive.
     """
     settings = get_settings()
-    if not settings.anthropic_api_key:
+    if not settings.groq_api_key:
         return False
 
     # Target cadence: ~1 seed moan per hour during the day, ~1 every 4-6

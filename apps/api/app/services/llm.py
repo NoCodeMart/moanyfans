@@ -3,13 +3,13 @@
 Why: keeps provider/model choices in one place, lets the rest of the code
 ignore which API actually answers, and means a key swap is a one-file edit.
 
-Provider preference:
-  - Text generation: Groq (llama-3.3-70b-versatile) — fast, cheap, good
-    enough for personas + moderation classification. Falls back to
-    Anthropic Haiku if a Groq error or no Groq key.
-  - Image classification: Groq (llama-4-scout vision). Falls back to
-    Anthropic Haiku vision if Groq fails. If neither key is configured,
-    returns 'SAFE' (fail-open — the report flow is the safety net).
+Provider:
+  - Text generation: Groq (llama-3.3-70b-versatile) only. If Groq fails or
+    is rate-limited, the caller gets None and the take simply doesn't post.
+  - Image classification: Groq (llama-4-scout vision) only. Returns
+    UNAVAILABLE on failure so callers fail closed (never publish).
+
+No paid third-party fallbacks — Groq is the only provider here.
 """
 from __future__ import annotations
 
@@ -26,7 +26,6 @@ log = structlog.get_logger(__name__)
 
 _GROQ_TEXT_MODEL = "llama-3.3-70b-versatile"
 _GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
-_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 
 def _extract_json(text: str) -> dict[str, Any] | None:
@@ -67,9 +66,6 @@ async def _groq_text(system: str, user: str, max_tokens: int,
                 },
             )
         if r.status_code != 200:
-            # Single-line warning so we can see the actual cause (rate limit,
-            # token cap, model error). Falls through to the Anthropic path
-            # via the None return.
             body = (r.text or "")[:300]
             log.warning("groq_text_non200",
                           status=r.status_code, body=body)
@@ -80,61 +76,18 @@ async def _groq_text(system: str, user: str, max_tokens: int,
         return None
 
 
-async def _anthropic_text(system: str, user: str, max_tokens: int,
-                           temperature: float = 0.7) -> str | None:
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": _ANTHROPIC_MODEL,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature,
-                    "system": system,
-                    "messages": [{"role": "user", "content": user}],
-                },
-            )
-        if r.status_code != 200:
-            body = (r.text or "")[:300]
-            log.warning("anthropic_text_non200",
-                          status=r.status_code, body=body)
-            return None
-        data = r.json()
-        return data["content"][0]["text"] if data.get("content") else None
-    except Exception:
-        log.exception("anthropic_text_failed")
-        return None
-
-
 async def complete_json(system: str, user: str, *, max_tokens: int = 250,
                           temperature: float = 0.7) -> dict[str, Any] | None:
-    """Returns the first JSON object found in the model's reply.
-    Tries Groq first, falls back to Anthropic. None if both fail."""
+    """Returns the first JSON object found in Groq's reply, or None."""
     raw = await _groq_text(system, user, max_tokens, temperature)
-    if raw:
-        parsed = _extract_json(raw)
-        if parsed is not None:
-            return parsed
-    raw = await _anthropic_text(system, user, max_tokens, temperature)
     if raw:
         return _extract_json(raw)
     return None
 
 
 async def complete_text(system: str, user: str, *, max_tokens: int = 250) -> str | None:
-    """Plain text completion. Returns the raw model text or None."""
-    raw = await _groq_text(system, user, max_tokens)
-    if raw:
-        return raw
-    return await _anthropic_text(system, user, max_tokens)
+    """Plain text completion via Groq. Returns the raw model text or None."""
+    return await _groq_text(system, user, max_tokens)
 
 
 # ── VISION (image classification) ───────────────────────────────────────────
@@ -184,38 +137,12 @@ async def _groq_vision(b64_webp: str) -> str | None:
         return None
 
 
-async def _anthropic_vision(b64_webp: str) -> str | None:
-    settings = get_settings()
-    if not settings.anthropic_api_key:
-        return None
-    try:
-        from anthropic import AsyncAnthropic
-        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-        msg = await client.messages.create(
-            model=_ANTHROPIC_MODEL,
-            max_tokens=10,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image", "source": {
-                        "type": "base64", "media_type": "image/webp", "data": b64_webp,
-                    }},
-                    {"type": "text", "text": _VISION_PROMPT},
-                ],
-            }],
-        )
-        return (msg.content[0].text if msg.content else "").strip().upper()
-    except Exception:
-        log.exception("anthropic_vision_failed")
-        return None
-
-
 async def classify_image(b64_webp: str) -> str:
-    """Returns 'SAFE', 'NSFW', 'ILLEGAL', or 'UNAVAILABLE' if neither provider
-    answered. Callers must fail closed on UNAVAILABLE — never publish."""
-    for verdict in (await _groq_vision(b64_webp), await _anthropic_vision(b64_webp)):
-        if verdict in {"SAFE", "NSFW", "ILLEGAL"}:
-            return verdict
-        if verdict:
-            log.warning("image_moderation_unknown_verdict", verdict=verdict[:40])
+    """Returns 'SAFE', 'NSFW', 'ILLEGAL', or 'UNAVAILABLE' if Groq didn't
+    answer. Callers must fail closed on UNAVAILABLE — never publish."""
+    verdict = await _groq_vision(b64_webp)
+    if verdict in {"SAFE", "NSFW", "ILLEGAL"}:
+        return verdict
+    if verdict:
+        log.warning("image_moderation_unknown_verdict", verdict=verdict[:40])
     return "UNAVAILABLE"

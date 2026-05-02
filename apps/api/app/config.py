@@ -28,7 +28,6 @@ class Settings(BaseSettings):
     # Dev/test user used when auth_enabled=False
     guest_handle: str = Field(default="GUEST_TESTER")
 
-    anthropic_api_key: str | None = None
     groq_api_key: str | None = None
     log_level: str = "INFO"
 

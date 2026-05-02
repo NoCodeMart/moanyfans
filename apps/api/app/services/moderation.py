@@ -1,9 +1,11 @@
-"""AI moderation via Claude.
+"""AI moderation via the LLM gateway (Groq).
 
 Scores a moan 0.0-1.0 where 1.0 = very high legal risk (defamation,
 crime allegations, slurs about real people).
 
-If ANTHROPIC_API_KEY is unset (e.g. dev), returns score=0 and proceeds.
+If the LLM call returns nothing (no key, rate-limited, etc.), returns
+score=0 and proceeds — fail open so a flaky moderation call never blocks
+real users.
 """
 
 from __future__ import annotations
