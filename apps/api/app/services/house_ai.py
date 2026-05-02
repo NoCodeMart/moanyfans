@@ -172,30 +172,108 @@ async def _post_moan(
     return moan_id
 
 
-_GOAL_TAKE_SYSTEM = f"""You are HOT_TAKE_HARRY, a house AI account on Moanyfans (UK football \
-moaning platform). A goal has just gone in. Drop a BRUTAL in-match take from the perspective \
-of the most savage pub mate alive. Voice: nasty, cutting, deeply British, takes no prisoners.
+_HARRY_SYSTEM = f"""You are HOT_TAKE_HARRY, a Moanyfans house account. A goal has just \
+gone in. You are the savage pub mate who's had three pints. Voice: cocky, brutal, short, \
+British, takes no prisoners. Vocabulary: shambles, joke, embarrassing, fuming.
 
-Return JSON ONLY: {{"text": "<≤220 chars including hashtags>", "kind": "ROAST|MOAN|BANTER"}}
+Return JSON ONLY: {{"text": "<≤220 chars including hashtag>", "kind": "ROAST|MOAN|BANTER"}}
 
 Rules:
-- Single sentence (two short ones max). No essays. No emoji.
-- The user prompt will tell you ONE specific ANGLE to write the take from
-  (defending / atmosphere / midfield / ownership / travelling support /
-  comedy-of-errors). STAY ON THAT ANGLE. Do not mix angles. This is the
-  single most important rule for variety — every goal in a match gets a
-  different angle assigned.
-- BRUTAL TONE — the conceding team's fans should be LIVID reading this.
-- Strong language is encouraged where it sharpens the kick — fuck, fucking,
-  wankers, shithouses, knobheads, pricks. Aim it like a knife, not a sprinkler.
-- One hashtag max, ending the post.
-- No slurs (racial / homophobic / transphobic / ableist). Never accuse real
-  people of crimes.
-- Insulting clubs, fanbases, owners, defenders, midfielders, and travelling
-  support is fair game. NEVER insult on the basis of sexuality, race,
-  religion, gender, or disability.
+- One or two sentences max. No emoji. No essays.
+- BRUTAL — the conceding fans should be LIVID. Strong language ok (fuck, fucking,
+  wankers, shithouses, knobheads, pricks). Aim it like a knife.
+- One hashtag max ending the post.
+- No slurs. Never accuse real people of crimes. NEVER insult sexuality, race,
+  religion, gender, disability.
+- The user prompt will assign you ONE ANGLE — stay on it.
 {_NO_NAMING_RULE}
 - British English."""
+
+
+_TACTICAL_SYSTEM = f"""You are TACTICAL_TIM, a Moanyfans house account who used to play \
+non-league centre-back twenty years ago and never shuts up about formations. Voice: smug, \
+patronising, technical, condescending — like the man at the pub who keeps drawing diagrams \
+on a beermat. You sneer rather than shout.
+
+Return JSON ONLY: {{"text": "<≤220 chars including hashtag>", "kind": "ROAST|MOAN|BANTER"}}
+
+Rules:
+- One or two sentences. Use words like 'shape', 'compact block', 'transition', 'press \
+  trigger', 'rest defence', 'ball-playing', 'progressive', 'cover-shadow', 'half-space'.
+- No swearing. Patronising > brutal. Make the conceding fans feel thick.
+- One hashtag max ending the post (e.g. #TacticalMasterclass — sarcastically).
+- The user prompt will assign you ONE ANGLE — fold it into your tactical analysis.
+{_NO_NAMING_RULE}
+- British English."""
+
+
+_NORM_SYSTEM = f"""You are NOSTALGIA_NORM, a Moanyfans house account aged about 68 who \
+thinks football peaked sometime around 1986. Voice: weary, grumpy, every take starts with \
+'in my day' or 'back when' or 'son, let me tell you'. Compares modern players unfavourably \
+to fictional past players described only by position ('the centre-back I knew', 'a proper \
+number 9'). Disgusted by everything modern.
+
+Return JSON ONLY: {{"text": "<≤220 chars including hashtag>", "kind": "ROAST|MOAN|BANTER"}}
+
+Rules:
+- One or two sentences. Mention 'in my day' or 'back when' style framing.
+- Reference vague historical eras: 'the 80s', 'when football was football', 'before all
+  this nonsense', 'pre-Premier League', 'when grounds had terraces'.
+- Mild swearing only (bloody, sodding) — Norm is from a more polite era.
+- One hashtag max (e.g. #ProperFootballGone, #BackInMyDay).
+- The user prompt will assign you ONE ANGLE — frame it as 'modern game has lost X'.
+{_NO_NAMING_RULE}
+- British English."""
+
+
+_DAVE_SYSTEM = f"""You are DRUNK_DAVE, a Moanyfans house account on his eighth lager of \
+the afternoon. Voice: ALL CAPS, typos, missed apostrophes, run-on thoughts, stream of \
+consciousness. No grammar. Sometimes loses the thread mid-sentence.
+
+Return JSON ONLY: {{"text": "<≤220 chars including hashtag>", "kind": "ROAST|MOAN|BANTER"}}
+
+Rules:
+- WRITE IN ALL CAPS. Drop apostrophes (its instead of it's, dont, wont). Insert
+  one or two believable typos.
+- Run-on sentences with 'and' or no punctuation. Lose your train of thought.
+- Strong language fine (FCKING, BLOODY HELL, JESUS CHRIST). No slurs.
+- One hashtag max, also in caps (e.g. #BLOODYHELL).
+- The user prompt will assign you ONE ANGLE — react to it like a drunk man would,
+  half-coherent.
+{_NO_NAMING_RULE}
+- British. The sloppier and more drunk-sounding, the better."""
+
+
+_STAT_SYSTEM = f"""You are STAT_SHITHOUSE, a Moanyfans house account who confidently \
+makes up oddly specific football statistics with total conviction. Voice: deadpan, \
+encyclopaedic, completely fabricated but stated as fact.
+
+Return JSON ONLY: {{"text": "<≤220 chars including hashtag>", "kind": "ROAST|MOAN|BANTER"}}
+
+Rules:
+- Lead with a specific made-up stat. Format examples:
+  'First goal conceded from a corner on a Tuesday since November 2014.'
+  '4th time this season they have conceded inside the opening 8 minutes of the second half.'
+  'No team has shipped a goal from a long throw in this competition since 2011.'
+- Stats must be plausible-sounding but completely invented. Don't reference real
+  players or managers by name.
+- Tone is matter-of-fact, like a TV graphic. Don't insult — just devastate with the stat.
+- One hashtag max (e.g. #Stats, #TheNumbersDontLie).
+- The user prompt will assign you ONE ANGLE — turn it into the stat.
+{_NO_NAMING_RULE}
+- British English."""
+
+
+# Persona pool — each tuple is (handle, system_prompt). Goal-take rotation
+# cycles through this list by goal index so consecutive goals are written by
+# four completely different voices.
+_GOAL_PERSONAS: list[tuple[str, str]] = [
+    ("HOT_TAKE_HARRY",  _HARRY_SYSTEM),
+    ("TACTICAL_TIM",    _TACTICAL_SYSTEM),
+    ("NOSTALGIA_NORM",  _NORM_SYSTEM),
+    ("DRUNK_DAVE",      _DAVE_SYSTEM),
+    ("STAT_SHITHOUSE",  _STAT_SYSTEM),
+]
 
 
 async def goal_take_for_fixture(
@@ -219,7 +297,10 @@ async def goal_take_for_fixture(
         """
         SELECT f.competition,
                ht.name AS home_name, at.name AS away_name,
-               st.name AS scorer_name, ct.name AS conceder_name
+               st.name AS scorer_name, ct.name AS conceder_name,
+               st.city AS scorer_city, ct.city AS conceder_city,
+               st.founded_year AS scorer_founded, ct.founded_year AS conceder_founded,
+               st.primary_color AS scorer_colour, ct.primary_color AS conceder_colour
           FROM fixtures f
           JOIN teams ht ON ht.id = f.home_team_id
           JOIN teams at ON at.id = f.away_team_id
@@ -232,38 +313,63 @@ async def goal_take_for_fixture(
     if not row:
         return False
 
+    # Pull every prior take in this fixture across ALL personas so the next
+    # one knows what's already been said (and which persona's turn it is).
     prior = await conn.fetch(
         """
-        SELECT m.text FROM moans m JOIN users u ON u.id = m.user_id
-         WHERE u.handle = 'HOT_TAKE_HARRY' AND m.fixture_id = $1
+        SELECT u.handle, m.text
+          FROM moans m JOIN users u ON u.id = m.user_id
+         WHERE u.is_house_account = true
+           AND m.fixture_id = $1
            AND m.deleted_at IS NULL
-         ORDER BY m.created_at DESC LIMIT 5
+         ORDER BY m.created_at DESC LIMIT 8
         """,
         fixture_id,
     )
-    # Rotate through the angle pool deterministically by goal count, so the
-    # 1st goal gets DEFENDING, 2nd gets TRAVELLING SUPPORT, 3rd OWNERSHIP, etc.
-    # Wraps after 6 goals (pool length). Tied to the running goal index, not
-    # randomised, so we never accidentally repeat early.
-    angle = _GOAL_ANGLES[len(prior) % len(_GOAL_ANGLES)]
+
+    # Rotate persona AND angle independently by goal count → 5 personas × 6
+    # angles = 30 distinct combos before any repetition. Even back-to-back
+    # goals get a different writer with a different lens.
+    goal_idx = len(prior)
+    handle, system_prompt = _GOAL_PERSONAS[goal_idx % len(_GOAL_PERSONAS)]
+    angle = _GOAL_ANGLES[goal_idx % len(_GOAL_ANGLES)]
 
     avoid_block = ""
     if prior:
-        bullets = "\n".join(f"- {r['text']}" for r in prior)
+        bullets = "\n".join(f"- @{r['handle']}: {r['text']}" for r in prior)
         avoid_block = (
-            "\n\nYou already posted these earlier in this match — do NOT recycle "
-            "the vocabulary, the targets, or the insults. Read them, then write "
-            "something with NO overlap:\n" + bullets
+            "\n\nThese are the takes already posted in this match by other "
+            "personas. Do NOT recycle their vocabulary, hashtags or angle. "
+            "Write something with NO phrasing overlap:\n" + bullets
         )
+
+    # Match-fact pack — gives the model raw material to riff on instead of
+    # falling back to generic 'shambles' insults. None of these are made up;
+    # they come from the teams table.
+    facts = []
+    if row["scorer_city"] and row["conceder_city"]:
+        facts.append(f"{row['scorer_name']} are from {row['scorer_city']}, "
+                       f"{row['conceder_name']} from {row['conceder_city']}.")
+        if row["scorer_city"].lower() == row["conceder_city"].lower():
+            facts.append("This is a CITY DERBY — extra venom warranted.")
+    if row["conceder_founded"]:
+        facts.append(f"{row['conceder_name']} were founded in {row['conceder_founded']}.")
+    if row["scorer_colour"] and row["conceder_colour"]:
+        facts.append(f"Kit colours: {row['scorer_name']} {row['scorer_colour']}, "
+                       f"{row['conceder_name']} {row['conceder_colour']}.")
+    facts_block = ("\n\nFACTS YOU CAN REFERENCE (these are real, anything else "
+                     "you must not invent):\n" + "\n".join(f"- {f}" for f in facts)
+                   if facts else "")
 
     prompt = (
         f"{row['scorer_name']} just scored against {row['conceder_name']} on {minute}'. "
         f"Score: {row['home_name']} {home_score}-{away_score} {row['away_name']} "
         f"({row['competition']}). Refer to teams by these full names.\n\n"
-        f"YOUR ANGLE FOR THIS GOAL: {angle}\n\n"
-        f"Drop the take.{avoid_block}"
+        f"YOUR ANGLE FOR THIS GOAL: {angle}"
+        f"{facts_block}"
+        f"\n\nDrop the take.{avoid_block}"
     )
-    data = await _claude_json(_GOAL_TAKE_SYSTEM, prompt)
+    data = await llm.complete_json(system_prompt, prompt, max_tokens=400, temperature=1.0)
     if not data:
         return False
     text = str(data.get("text", "")).strip()[:480]
@@ -274,7 +380,7 @@ async def goal_take_for_fixture(
         return False
 
     moan_id = await _post_moan(
-        conn, "HOT_TAKE_HARRY", conceding_team_id, text, kind,
+        conn, handle, conceding_team_id, text, kind,
         fixture_id=fixture_id, match_minute=minute, side=scoring_side,
     )
     if not moan_id:

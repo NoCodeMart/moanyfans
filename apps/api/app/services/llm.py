@@ -43,7 +43,8 @@ def _extract_json(text: str) -> dict[str, Any] | None:
 
 # ── TEXT ────────────────────────────────────────────────────────────────────
 
-async def _groq_text(system: str, user: str, max_tokens: int) -> str | None:
+async def _groq_text(system: str, user: str, max_tokens: int,
+                      temperature: float = 0.7) -> str | None:
     settings = get_settings()
     if not settings.groq_api_key:
         return None
@@ -58,6 +59,7 @@ async def _groq_text(system: str, user: str, max_tokens: int) -> str | None:
                 json={
                     "model": _GROQ_TEXT_MODEL,
                     "max_tokens": max_tokens,
+                    "temperature": temperature,
                     "messages": [
                         {"role": "system", "content": system},
                         {"role": "user", "content": user},
@@ -71,7 +73,8 @@ async def _groq_text(system: str, user: str, max_tokens: int) -> str | None:
         return None
 
 
-async def _anthropic_text(system: str, user: str, max_tokens: int) -> str | None:
+async def _anthropic_text(system: str, user: str, max_tokens: int,
+                           temperature: float = 0.7) -> str | None:
     settings = get_settings()
     if not settings.anthropic_api_key:
         return None
@@ -87,6 +90,7 @@ async def _anthropic_text(system: str, user: str, max_tokens: int) -> str | None
                 json={
                     "model": _ANTHROPIC_MODEL,
                     "max_tokens": max_tokens,
+                    "temperature": temperature,
                     "system": system,
                     "messages": [{"role": "user", "content": user}],
                 },
@@ -99,15 +103,16 @@ async def _anthropic_text(system: str, user: str, max_tokens: int) -> str | None
         return None
 
 
-async def complete_json(system: str, user: str, *, max_tokens: int = 250) -> dict[str, Any] | None:
+async def complete_json(system: str, user: str, *, max_tokens: int = 250,
+                          temperature: float = 0.7) -> dict[str, Any] | None:
     """Returns the first JSON object found in the model's reply.
     Tries Groq first, falls back to Anthropic. None if both fail."""
-    raw = await _groq_text(system, user, max_tokens)
+    raw = await _groq_text(system, user, max_tokens, temperature)
     if raw:
         parsed = _extract_json(raw)
         if parsed is not None:
             return parsed
-    raw = await _anthropic_text(system, user, max_tokens)
+    raw = await _anthropic_text(system, user, max_tokens, temperature)
     if raw:
         return _extract_json(raw)
     return None
