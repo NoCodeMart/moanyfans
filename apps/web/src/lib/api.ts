@@ -357,6 +357,19 @@ export type TopUser = {
   score: number;
 };
 
+export type MyPositionCard = {
+  metric: LbUserMetric | 'prophet';
+  rank: number | null;
+  score: number;
+  total_ranked: number;
+};
+
+export type MyPosition = {
+  period: LbPeriod;
+  handle: string;
+  cards: MyPositionCard[];
+};
+
 export type Prophet = {
   handle: string;
   avatar_seed: string | null;
@@ -498,6 +511,8 @@ export const api = {
     request<TopUser[]>(`/leaderboards/top-users?period=${period}&metric=${metric}&limit=${limit}`),
   prophets: (period: LbPeriod = 'all', limit = 20) =>
     request<Prophet[]>(`/leaderboards/prophets?period=${period}&limit=${limit}`),
+  myPosition: (period: LbPeriod = 'week') =>
+    request<MyPosition>(`/leaderboards/my-position?period=${period}`),
   adminReReserveHandle: (handle: string) =>
     request<{ status: string }>(`/admin/reserved-handles/${encodeURIComponent(handle)}/reserve`,
       { method: 'POST' }),

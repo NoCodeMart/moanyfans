@@ -11,8 +11,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, type CSSProperties } from 'react';
 import {
   api, type LbPeriod, type LbUserMetric,
-  type Prophet, type TopMoan, type TopUser,
+  type MyPosition, type Prophet, type TopMoan, type TopUser,
 } from '../lib/api';
+import { useCurrentUser } from '../lib/auth';
 
 const PERIODS: { id: LbPeriod; label: string }[] = [
   { id: 'week', label: 'THIS WEEK' },
@@ -79,6 +80,9 @@ export function LeaderboardsLive() {
         ))}
       </div>
 
+      {/* YOU card — your rank in each category for the chosen period */}
+      <YouCard period={period} />
+
       {/* Hero — MOAN OF THE [PERIOD] */}
       <div style={{
         background: 'var(--ink)', color: 'var(--cream)',
@@ -111,6 +115,89 @@ export function LeaderboardsLive() {
 
       {/* Prophets — who calls rumours right */}
       <ProphetsBoard />
+    </div>
+  );
+}
+
+const METRIC_LABELS: Record<string, { emoji: string; label: string }> = {
+  laughs_received: { emoji: '😂', label: 'FUNNIEST' },
+  agrees_received: { emoji: '💯', label: 'HOT TAKES' },
+  ratio_received:  { emoji: '🧂', label: 'SALTIEST' },
+  cope_received:   { emoji: '🤡', label: 'CHIEF CLOWN' },
+  total_reactions: { emoji: '⚡', label: 'OVERALL' },
+  moan_count:      { emoji: '🔥', label: 'PROLIFIC' },
+  prophet:         { emoji: '🔮', label: 'PROPHET' },
+};
+
+function YouCard({ period }: { period: LbPeriod }) {
+  const { user } = useCurrentUser();
+  const q = useQuery({
+    queryKey: ['lb', 'my-position', period],
+    queryFn: () => api.myPosition(period),
+    staleTime: 30_000,
+    enabled: !!user,
+  });
+  if (!user) return null;
+  const data: MyPosition | undefined = q.data;
+
+  return (
+    <div style={{
+      background: 'var(--cream-2, #f0ede3)',
+      border: '3px solid var(--ink)',
+      boxShadow: '4px 4px 0 var(--ink)',
+      padding: 14, marginBottom: 24,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', gap: 10,
+        marginBottom: 10, flexWrap: 'wrap',
+      }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 18,
+                       letterSpacing: '0.02em' }}>
+          📍 YOU · @{user.handle}
+        </div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
+                       opacity: 0.6, letterSpacing: '0.1em' }}>
+          {period === 'week' ? 'THIS WEEK' : period === 'month' ? 'THIS MONTH' : 'ALL TIME'}
+        </div>
+      </div>
+      {q.isLoading && (
+        <div style={{ opacity: 0.5, fontFamily: 'var(--font-mono)', fontSize: 12 }}>Loading…</div>
+      )}
+      {data && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10,
+        }}>
+          {data.cards.map(c => {
+            const meta = METRIC_LABELS[c.metric];
+            const onBoard = c.rank !== null;
+            return (
+              <div key={c.metric} style={{
+                background: 'var(--paper)', border: '1px solid var(--ink)',
+                padding: 10,
+              }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+                                opacity: 0.7, letterSpacing: '0.1em' }}>
+                  {meta.emoji} {meta.label}
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 22,
+                                lineHeight: 1.1, marginTop: 4 }}>
+                  {onBoard ? (
+                    <>#{c.rank}<span style={{ fontSize: 11, opacity: 0.55 }}>
+                      /{c.total_ranked}</span></>
+                  ) : (
+                    <span style={{ fontSize: 14, opacity: 0.45 }}>UNRANKED</span>
+                  )}
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
+                                opacity: 0.65, marginTop: 2 }}>
+                  {c.score.toLocaleString()} {c.metric === 'prophet' ? 'right' : ''}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

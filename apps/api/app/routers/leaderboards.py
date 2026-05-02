@@ -12,10 +12,12 @@ leaderboards aren't dominated by AI personas.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+
+from ..auth import CurrentUser, get_current_user
 
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
 
@@ -281,3 +283,147 @@ async def prophets(request: Request,
             accuracy=accuracy,
         ))
     return out
+
+
+class MyPositionCard(BaseModel):
+    metric: str          # one of UserMetric or 'prophet'
+    rank: int | None     # null if user is not on the board
+    score: int           # the metric value (for prophet: correct calls)
+    total_ranked: int    # how many users have a non-zero score in this metric
+
+
+class MyPosition(BaseModel):
+    period: Period
+    handle: str
+    cards: list[MyPositionCard]
+
+
+_USER_METRIC_COL = {
+    "laughs_received":  "m.laughs",
+    "agrees_received":  "m.agrees",
+    "ratio_received":   "m.ratio",
+    "cope_received":    "m.cope",
+    "total_reactions":  "(m.laughs + m.agrees + m.ratio + m.cope)",
+}
+
+
+@router.get("/my-position", response_model=MyPosition)
+async def my_position(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    period: Period = "week",
+) -> MyPosition:
+    """Where the current user sits on each leaderboard.
+
+    Single endpoint that returns the user's score, rank, and the size of the
+    ranked pool for every category in one round trip — so the UI can render a
+    'YOU' card without fanning out 7 requests.
+    """
+    pool = request.app.state.pool
+    period_filter = _period_clause(period)
+    cards: list[MyPositionCard] = []
+
+    async with pool.acquire() as conn:
+        # ── Reaction-received metrics + total_reactions ──────────────────
+        for metric, col in _USER_METRIC_COL.items():
+            sql = f"""
+                WITH scored AS (
+                  SELECT u.id,
+                         COALESCE(sum({col}), 0)::int AS score
+                    FROM users u
+                    LEFT JOIN moans m ON m.user_id = u.id
+                                      AND m.deleted_at IS NULL
+                                      AND m.status = 'PUBLISHED'
+                                      {period_filter}
+                   WHERE u.is_house_account = false
+                     AND u.deleted_at IS NULL
+                   GROUP BY u.id
+                )
+                SELECT
+                  COALESCE((SELECT score FROM scored WHERE id = $1), 0) AS my_score,
+                  (SELECT count(*) FROM scored WHERE score > 0)         AS ranked,
+                  (SELECT count(*) + 1 FROM scored
+                     WHERE score > COALESCE((SELECT score FROM scored WHERE id = $1), 0))
+                                                                        AS my_rank
+            """
+            row = await conn.fetchrow(sql, user.id)
+            score = row["my_score"] or 0
+            ranked = row["ranked"] or 0
+            rank = row["my_rank"] if score > 0 else None
+            cards.append(MyPositionCard(
+                metric=metric, rank=rank, score=score, total_ranked=ranked,
+            ))
+
+        # ── Moan count ──────────────────────────────────────────────────
+        sql_count = f"""
+            WITH scored AS (
+              SELECT u.id, count(m.*)::int AS score
+                FROM users u
+                LEFT JOIN moans m ON m.user_id = u.id
+                                  AND m.deleted_at IS NULL
+                                  AND m.status = 'PUBLISHED'
+                                  {period_filter}
+               WHERE u.is_house_account = false
+                 AND u.deleted_at IS NULL
+               GROUP BY u.id
+            )
+            SELECT
+              COALESCE((SELECT score FROM scored WHERE id = $1), 0) AS my_score,
+              (SELECT count(*) FROM scored WHERE score > 0)         AS ranked,
+              (SELECT count(*) + 1 FROM scored
+                 WHERE score > COALESCE((SELECT score FROM scored WHERE id = $1), 0))
+                                                                    AS my_rank
+        """
+        row = await conn.fetchrow(sql_count, user.id)
+        score = row["my_score"] or 0
+        ranked = row["ranked"] or 0
+        cards.append(MyPositionCard(
+            metric="moan_count",
+            rank=row["my_rank"] if score > 0 else None,
+            score=score, total_ranked=ranked,
+        ))
+
+        # ── Prophet (rumour-call accuracy) ──────────────────────────────
+        # Period filter applies to the rumour resolution time, not the moan
+        # creation time, so it matches the prophets endpoint.
+        prophet_period = (period_filter
+                            .replace("m.created_at", "m.rumour_resolved_at")
+                          if period_filter else "")
+        sql_prophet = f"""
+            WITH scored AS (
+              SELECT rv.user_id,
+                     count(*) FILTER (
+                       WHERE (rv.vote = 'HERE_WE_GO' AND m.rumour_status = 'CONFIRMED')
+                          OR (rv.vote = 'BOLLOCKS'   AND m.rumour_status = 'BUSTED')
+                     )::int AS correct
+                FROM rumour_votes rv
+                JOIN moans m ON m.id = rv.moan_id
+                JOIN users u ON u.id = rv.user_id
+               WHERE m.kind = 'RUMOUR'
+                 AND m.deleted_at IS NULL
+                 AND m.rumour_status IN ('CONFIRMED','BUSTED')
+                 AND m.rumour_resolved_at IS NOT NULL
+                 AND rv.created_at <= m.rumour_resolved_at
+                 AND rv.vote IN ('HERE_WE_GO','BOLLOCKS')
+                 AND u.is_house_account = false
+                 AND u.deleted_at IS NULL
+                 {prophet_period}
+               GROUP BY rv.user_id
+            )
+            SELECT
+              COALESCE((SELECT correct FROM scored WHERE user_id = $1), 0) AS my_score,
+              (SELECT count(*) FROM scored WHERE correct > 0)              AS ranked,
+              (SELECT count(*) + 1 FROM scored
+                 WHERE correct > COALESCE((SELECT correct FROM scored WHERE user_id = $1), 0))
+                                                                           AS my_rank
+        """
+        row = await conn.fetchrow(sql_prophet, user.id)
+        score = row["my_score"] or 0
+        ranked = row["ranked"] or 0
+        cards.append(MyPositionCard(
+            metric="prophet",
+            rank=row["my_rank"] if score > 0 else None,
+            score=score, total_ranked=ranked,
+        ))
+
+    return MyPosition(period=period, handle=user.handle, cards=cards)
