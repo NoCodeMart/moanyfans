@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactionKind, Side, TeamRef } from '../lib/api';
+import { useCurrentUser } from '../lib/auth';
 import { useCreateMoan, useFixture, useFixtureThread, useReact } from '../lib/hooks';
 
 // Render the common-knowledge name of a team, not its tabloid nickname.
@@ -136,7 +137,23 @@ const LiveComposer = memo(function LiveComposer({
   homePrimary: string; awayPrimary: string;
   homeSlug: string; awaySlug: string;
 }) {
-  const [side, setSide] = useState<Side>('NEUTRAL');
+  const { user } = useCurrentUser();
+  // Auto-pick which side the user is posting from based on the team they
+  // support — Villa fan watching Villa vs Arsenal posts as HOME / AWAY
+  // accordingly. If their team isn't in the match, they're a NEUTRAL.
+  const side: Side =
+    user?.team_slug === homeSlug ? 'HOME'
+    : user?.team_slug === awaySlug ? 'AWAY'
+    : 'NEUTRAL';
+  const sideLabel =
+    side === 'HOME' ? `${homeLabel} fan`
+    : side === 'AWAY' ? `${awayLabel} fan`
+    : 'a neutral';
+  const sideColour =
+    side === 'HOME' ? homePrimary
+    : side === 'AWAY' ? awayPrimary
+    : 'var(--ink)';
+
   const [hasText, setHasText] = useState(false);
   const create = useCreateMoan();
   const ref = useRef<HTMLTextAreaElement | null>(null);
@@ -216,24 +233,15 @@ const LiveComposer = memo(function LiveComposer({
       boxShadow: '4px 4px 0 var(--ink)',
       padding: 12, zIndex: 100,
     }}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        {(['HOME', 'NEUTRAL', 'AWAY'] as Side[]).map(s => {
-          const active = side === s;
-          const colour = s === 'HOME' ? homePrimary
-            : s === 'AWAY' ? awayPrimary : 'var(--ink)';
-          const label = s === 'HOME' ? homeLabel
-            : s === 'AWAY' ? awayLabel : 'NEUTRAL';
-          return (
-            <button key={s} type="button" onClick={() => setSide(s)}
-              style={{
-                fontFamily: 'var(--font-display)', fontSize: 12, letterSpacing: '0.05em',
-                padding: '6px 14px',
-                background: active ? colour : 'transparent',
-                color: active ? 'var(--cream)' : 'var(--ink)',
-                border: `2px solid ${colour}`, cursor: 'pointer',
-              }}>POSTING AS {label}</button>
-          );
-        })}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
+        color: 'var(--ink)', opacity: 0.7,
+      }}>
+        <span style={{
+          display: 'inline-block', width: 8, height: 8, background: sideColour,
+        }} />
+        <span>POSTING AS {sideLabel.toUpperCase()}</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <textarea
@@ -268,7 +276,7 @@ const LiveComposer = memo(function LiveComposer({
         <button type="button" onClick={submit}
           disabled={create.isPending || !hasText}
           style={{
-            background: SIDE_COLORS[side], color: 'var(--cream)',
+            background: sideColour, color: 'var(--cream)',
             border: 'none', cursor: 'pointer',
             fontFamily: 'var(--font-display)', fontSize: 16,
             letterSpacing: '0.05em', padding: '0 24px',
