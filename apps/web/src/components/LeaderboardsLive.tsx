@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, type CSSProperties } from 'react';
 import {
   api, type LbPeriod, type LbUserMetric,
-  type TopMoan, type TopUser,
+  type Prophet, type TopMoan, type TopUser,
 } from '../lib/api';
 
 const PERIODS: { id: LbPeriod; label: string }[] = [
@@ -102,10 +102,106 @@ export function LeaderboardsLive() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16,
+        marginBottom: 24,
       }}>
         {USER_CATEGORIES.map(c => (
           <UserBoard key={c.metric} category={c} period={period} />
         ))}
+      </div>
+
+      {/* Prophets — who calls rumours right */}
+      <ProphetsBoard />
+    </div>
+  );
+}
+
+function ProphetsBoard() {
+  const q = useQuery({
+    queryKey: ['lb', 'prophets'],
+    queryFn: () => api.prophets('all', 20),
+    staleTime: 60_000,
+  });
+  const data = q.data ?? [];
+  return (
+    <div style={{
+      background: 'var(--paper)', border: '3px solid var(--ink)',
+      boxShadow: '6px 6px 0 var(--green, #06a77d)', padding: 20,
+    }}>
+      <div style={{ borderLeft: '6px solid var(--green, #06a77d)', paddingLeft: 12,
+                      marginBottom: 14 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 22,
+                       letterSpacing: '0.02em' }}>
+          🔮 THE PROPHETS
+        </div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
+                       opacity: 0.65, marginTop: 4 }}>
+          Who called the most transfer rumours right. Min 3 calls. Late votes don't count.
+        </div>
+      </div>
+      {q.isLoading && (
+        <div style={{ opacity: 0.5, fontFamily: 'var(--font-mono)', fontSize: 12 }}>Loading…</div>
+      )}
+      {!q.isLoading && data.length === 0 && (
+        <div style={{ opacity: 0.55, fontFamily: 'var(--font-mono)', fontSize: 13, padding: '12px 0' }}>
+          Nobody's called 3 rumours right yet. The throne is empty — get voting in the Transfer Room.
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {data.map((p, i) => <ProphetRow key={p.handle} prophet={p} rank={i + 1} />)}
+      </div>
+    </div>
+  );
+}
+
+function ProphetRow({ prophet: p, rank }: { prophet: Prophet; rank: number }) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '24px 36px 1fr auto auto auto',
+      alignItems: 'center', gap: 10,
+      padding: '6px 0',
+      borderBottom: '1px dashed rgba(10,9,8,0.1)',
+    }}>
+      <div style={{
+        fontFamily: 'var(--font-display)', fontSize: 16,
+        color: rank === 1 ? 'var(--green, #06a77d)'
+              : rank <= 3 ? 'var(--ink)' : 'var(--ink)',
+        opacity: rank <= 3 ? 1 : 0.5,
+      }}>{rank}</div>
+      <SmallAvatar user={p} size={32} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 14,
+                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          @{p.handle}
+        </div>
+        {p.team_short && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+                         opacity: 0.65, color: p.team_primary ?? undefined }}>
+            {p.team_short}
+          </div>
+        )}
+      </div>
+      <div title="Confirmed picks called early" style={{
+        fontFamily: 'var(--font-mono)', fontSize: 12,
+        color: 'var(--green, #06a77d)',
+      }}>
+        🟢 {p.here_we_gos}
+      </div>
+      <div title="Busted rumours called early" style={{
+        fontFamily: 'var(--font-mono)', fontSize: 12,
+        color: 'var(--red, #e63946)',
+      }}>
+        🔴 {p.busts_called}
+      </div>
+      <div title="Accuracy" style={{
+        fontFamily: 'var(--font-display)', fontSize: 16,
+        minWidth: 48, textAlign: 'right',
+      }}>
+        {p.accuracy}%
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+                       opacity: 0.6, marginTop: -2 }}>
+          {p.correct}/{p.total}
+        </div>
       </div>
     </div>
   );

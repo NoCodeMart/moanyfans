@@ -357,6 +357,19 @@ export type TopUser = {
   score: number;
 };
 
+export type Prophet = {
+  handle: string;
+  avatar_seed: string | null;
+  avatar_style: string | null;
+  team_short: string | null;
+  team_primary: string | null;
+  correct: number;
+  busts_called: number;
+  here_we_gos: number;
+  total: number;
+  accuracy: number;
+};
+
 export type ClaimRow = {
   id: string;
   handle: string;
@@ -483,6 +496,8 @@ export const api = {
     request<TopMoan[]>(`/leaderboards/top-moans?period=${period}&metric=${metric}&limit=${limit}`),
   topUsers: (period: LbPeriod = 'week', metric: LbUserMetric = 'laughs_received', limit = 10) =>
     request<TopUser[]>(`/leaderboards/top-users?period=${period}&metric=${metric}&limit=${limit}`),
+  prophets: (period: LbPeriod = 'all', limit = 20) =>
+    request<Prophet[]>(`/leaderboards/prophets?period=${period}&limit=${limit}`),
   adminReReserveHandle: (handle: string) =>
     request<{ status: string }>(`/admin/reserved-handles/${encodeURIComponent(handle)}/reserve`,
       { method: 'POST' }),

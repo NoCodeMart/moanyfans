@@ -59,6 +59,19 @@ class TopUser(BaseModel):
     score: int
 
 
+class Prophet(BaseModel):
+    handle: str
+    avatar_seed: str | None = None
+    avatar_style: str | None = None
+    team_short: str | None = None
+    team_primary: str | None = None
+    correct: int
+    busts_called: int    # of correct, how many were BUSTED (sceptic score)
+    here_we_gos: int     # of correct, how many were CONFIRMED (believer score)
+    total: int
+    accuracy: int        # 0–100, integer percentage
+
+
 def _period_clause(period: Period, alias: str = "m") -> str:
     iv = _PERIOD_INTERVAL[period]
     if iv is None:
@@ -190,3 +203,81 @@ async def top_users(request: Request,
             score=r["score"],
         ) for r in rows
     ]
+
+
+@router.get("/prophets", response_model=list[Prophet])
+async def prophets(request: Request,
+                   period: Period = "all",
+                   limit: int = 20) -> list[Prophet]:
+    """Users who called the most rumours right.
+
+    A vote counts as 'right' if:
+      HERE_WE_GO + admin marked CONFIRMED, or
+      BOLLOCKS   + admin marked BUSTED.
+    GET_A_GRIP is meme-only, never scored.
+    Vote must be cast BEFORE the rumour was resolved (no
+    post-hoc cheating). Min 3 calls to qualify (avoids one-shot
+    100%-ers dominating).
+    """
+    if limit < 1 or limit > 50:
+        raise HTTPException(400, "limit must be between 1 and 50")
+    period_filter = _period_clause(period)
+    pool = request.app.state.pool
+    sql = f"""
+        WITH calls AS (
+          SELECT rv.user_id,
+                 rv.vote,
+                 m.rumour_status,
+                 m.rumour_resolved_at
+            FROM rumour_votes rv
+            JOIN moans m ON m.id = rv.moan_id
+           WHERE m.kind = 'RUMOUR'
+             AND m.deleted_at IS NULL
+             AND m.rumour_status IN ('CONFIRMED', 'BUSTED')
+             AND m.rumour_resolved_at IS NOT NULL
+             AND rv.created_at <= m.rumour_resolved_at
+             AND rv.vote IN ('HERE_WE_GO', 'BOLLOCKS')
+             {period_filter.replace('m.created_at', 'm.rumour_resolved_at') if period_filter else ''}
+        )
+        SELECT u.handle, u.avatar_seed, u.avatar_style,
+               t.short_name AS team_short, t.primary_color AS team_primary,
+               COUNT(*) FILTER (
+                 WHERE (c.vote = 'HERE_WE_GO' AND c.rumour_status = 'CONFIRMED')
+                    OR (c.vote = 'BOLLOCKS'   AND c.rumour_status = 'BUSTED')
+               )::int AS correct,
+               COUNT(*) FILTER (
+                 WHERE c.vote = 'BOLLOCKS' AND c.rumour_status = 'BUSTED'
+               )::int AS busts_called,
+               COUNT(*) FILTER (
+                 WHERE c.vote = 'HERE_WE_GO' AND c.rumour_status = 'CONFIRMED'
+               )::int AS here_we_gos,
+               COUNT(*)::int AS total
+          FROM calls c
+          JOIN users u ON u.id = c.user_id
+          LEFT JOIN teams t ON t.id = u.team_id
+         WHERE u.is_house_account = false
+           AND u.deleted_at IS NULL
+         GROUP BY u.id, t.id
+        HAVING COUNT(*) >= 3
+         ORDER BY correct DESC, total ASC, u.handle ASC
+         LIMIT $1
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, limit)
+    out: list[Prophet] = []
+    for r in rows:
+        total = r["total"]
+        accuracy = round((r["correct"] * 100) / total) if total else 0
+        out.append(Prophet(
+            handle=r["handle"],
+            avatar_seed=r["avatar_seed"],
+            avatar_style=r["avatar_style"],
+            team_short=r["team_short"],
+            team_primary=r["team_primary"],
+            correct=r["correct"],
+            busts_called=r["busts_called"],
+            here_we_gos=r["here_we_gos"],
+            total=total,
+            accuracy=accuracy,
+        ))
+    return out
