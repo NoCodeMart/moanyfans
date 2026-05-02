@@ -107,7 +107,10 @@ export function useFixture(id: string | null) {
     queryKey: ['fixture', id],
     queryFn: () => api.getFixture(id!),
     enabled: !!id,
-    refetchInterval: 10_000,
+    // Goal events arrive via the 5s thread poll (with a system event banner)
+    // so the score-card refetch can be lazier — every 30s is plenty for the
+    // minute counter and final-score sync, and avoids the perceived flash.
+    refetchInterval: 30_000,
     placeholderData: (prev) => prev,
   });
 }

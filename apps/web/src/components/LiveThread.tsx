@@ -280,7 +280,10 @@ const LiveComposer = memo(function LiveComposer({
   );
 });
 
-function ScoreBanner({
+// Memoised so the 10–30s polling on useFixture doesn't repaint the sticky
+// score header on every refetch — the props are all primitive scalars so
+// shallow compare bails until something actually changes (goal, period, etc).
+const ScoreBanner = memo(function ScoreBanner({
   homeShort, homePrimary, awayShort, awayPrimary,
   homeScore, awayScore, status, minute, period, competition, onBack,
 }: {
@@ -353,7 +356,7 @@ function ScoreBanner({
       >← ALL FIXTURES</button>
     </div>
   );
-}
+});
 
 function ThreadRow({
   item, homeShort, awayShort, homePrimary, awayPrimary,
