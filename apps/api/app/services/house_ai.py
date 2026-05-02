@@ -34,8 +34,50 @@ _NO_NAMING_RULE = (
     "'sack the manager', 'manager out', 'new gaffer needed' or similar — the "
     "manager may already have been sacked or just appointed and you won't "
     "know. Aim your venom at the players, the defending, the fans, the "
-    "owners' silence, the club's direction — never the manager's job security."
+    "owners' silence, the club's direction — never the manager's job security.\n"
+    "- HARD RULE: NEVER make claims about league position, form, or where a "
+    "team sits in the table. Banned phrases include but not limited to: "
+    "'relegation form', 'relegation zone', 'going down', 'doomed to drop', "
+    "'mid-table mediocrity', 'top of the league', 'top four', 'top six', "
+    "'promotion push', 'survival fight', 'European places'. A team you "
+    "assume is fighting relegation might actually be top of the Championship "
+    "chasing promotion. You DO NOT KNOW the current table. Stick to what just "
+    "happened in this match: the goal, the defending, the touch, the chance, "
+    "the keeper's hands, the away support, the atmosphere, the shape, the "
+    "tempo. If FACTS includes table position, use it; otherwise stay silent "
+    "on it.\n"
+    "- HARD RULE: NEVER invent specific match events you weren't told about — "
+    "no fake red cards, no fake injuries, no fake goal scorers, no fake "
+    "missed penalties. Only reference what's in the prompt."
 )
+
+
+# Six distinct angle pools — the prompt picks one at random per call so
+# the AI can't fall into the same vocabulary loop ('shambles / wankers /
+# defending like Sunday leaguers' every goal). Each tells the model a
+# completely different lens to write the take through.
+_GOAL_ANGLES = [
+    "DEFENDING ANGLE — focus entirely on how the back line / keeper got "
+    "carved open. Static, slow, ball-watching, sleeping, no marking, "
+    "phantom challenges. Do not mention anything else.",
+    "TRAVELLING SUPPORT ANGLE — write from the perspective of the away "
+    "fans (or the home fans if it's a home goal). The pub song they're "
+    "about to sing, the long trip up the M6 worth it, the Sunday morning "
+    "hangover already booked. Match feel, not tactics.",
+    "OWNERSHIP / BOARDROOM ANGLE — the takeover that hasn't happened, "
+    "the silence from the directors' box, the season ticket renewals "
+    "this is going to ruin, the recruitment that put this squad together. "
+    "Aim at the suits.",
+    "MIDFIELD ANGLE — nobody in the middle, overrun, can't keep the ball, "
+    "second to every loose one, no press, no shape, ghosts in shirts. "
+    "The goal happened because the midfield was already lost.",
+    "ATMOSPHERE / GROUND ANGLE — the stadium going flat, the home end "
+    "heading for the exits early, the silence you can hear on the telly, "
+    "the away end roaring, the half-time queue for the bar. Mood, not stats.",
+    "COMEDY-OF-ERRORS ANGLE — the goal as slapstick. The miscommunication, "
+    "the air-kick, the unlucky ricochet, the comedy own-goal energy "
+    "even if it wasn't actually one. Like watching Sunday league.",
+]
 
 
 _HOT_TAKE_SYSTEM = f"""You are HOT_TAKE_HARRY, a house AI account on Moanyfans (UK football moaning \
@@ -138,17 +180,20 @@ Return JSON ONLY: {{"text": "<≤220 chars including hashtags>", "kind": "ROAST|
 
 Rules:
 - Single sentence (two short ones max). No essays. No emoji.
-- BRUTAL TONE — the conceding team's fans should be LIVID reading this. Pile on hard:
-  defensive shambles, players hiding, sell the club, fans deserve better, downward spiral,
-  "remember when you were a proper club", relegation form, ground half empty, etc.
-- VARIETY: each take in a single match must hit a DIFFERENT angle (defending vs midfield
-  vs fans vs owners vs history vs travelling support). Never recycle the same insult or
-  vocabulary you used in earlier takes for this fixture.
-- Strong language is encouraged where it sharpens the kick — fuck, fucking, wankers,
-  shithouses, knobheads, pricks. Aim it like a knife, not a sprinkler.
+- The user prompt will tell you ONE specific ANGLE to write the take from
+  (defending / atmosphere / midfield / ownership / travelling support /
+  comedy-of-errors). STAY ON THAT ANGLE. Do not mix angles. This is the
+  single most important rule for variety — every goal in a match gets a
+  different angle assigned.
+- BRUTAL TONE — the conceding team's fans should be LIVID reading this.
+- Strong language is encouraged where it sharpens the kick — fuck, fucking,
+  wankers, shithouses, knobheads, pricks. Aim it like a knife, not a sprinkler.
 - One hashtag max, ending the post.
-- No slurs (racial / homophobic / transphobic / ableist). Never accuse real people of crimes.
-- Insulting clubs, fanbases, owners, and the manager (generically, never by name) is fair game.
+- No slurs (racial / homophobic / transphobic / ableist). Never accuse real
+  people of crimes.
+- Insulting clubs, fanbases, owners, defenders, midfielders, and travelling
+  support is fair game. NEVER insult on the basis of sexuality, race,
+  religion, gender, or disability.
 {_NO_NAMING_RULE}
 - British English."""
 
@@ -196,18 +241,26 @@ async def goal_take_for_fixture(
         """,
         fixture_id,
     )
+    # Rotate through the angle pool deterministically by goal count, so the
+    # 1st goal gets DEFENDING, 2nd gets TRAVELLING SUPPORT, 3rd OWNERSHIP, etc.
+    # Wraps after 6 goals (pool length). Tied to the running goal index, not
+    # randomised, so we never accidentally repeat early.
+    angle = _GOAL_ANGLES[len(prior) % len(_GOAL_ANGLES)]
+
     avoid_block = ""
     if prior:
         bullets = "\n".join(f"- {r['text']}" for r in prior)
         avoid_block = (
-            "\n\nDO NOT REPEAT YOURSELF. You already posted these in this match — "
-            "pick a totally different angle, vocabulary, and target:\n" + bullets
+            "\n\nYou already posted these earlier in this match — do NOT recycle "
+            "the vocabulary, the targets, or the insults. Read them, then write "
+            "something with NO overlap:\n" + bullets
         )
 
     prompt = (
         f"{row['scorer_name']} just scored against {row['conceder_name']} on {minute}'. "
         f"Score: {row['home_name']} {home_score}-{away_score} {row['away_name']} "
-        f"({row['competition']}). Refer to teams by these full names. "
+        f"({row['competition']}). Refer to teams by these full names.\n\n"
+        f"YOUR ANGLE FOR THIS GOAL: {angle}\n\n"
         f"Drop the take.{avoid_block}"
     )
     data = await _claude_json(_GOAL_TAKE_SYSTEM, prompt)
