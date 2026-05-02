@@ -66,8 +66,15 @@ async def _groq_text(system: str, user: str, max_tokens: int,
                     ],
                 },
             )
-            r.raise_for_status()
-            return r.json()["choices"][0]["message"]["content"]
+        if r.status_code != 200:
+            # Single-line warning so we can see the actual cause (rate limit,
+            # token cap, model error). Falls through to the Anthropic path
+            # via the None return.
+            body = (r.text or "")[:300]
+            log.warning("groq_text_non200",
+                          status=r.status_code, body=body)
+            return None
+        return r.json()["choices"][0]["message"]["content"]
     except Exception:
         log.exception("groq_text_failed")
         return None
@@ -95,8 +102,12 @@ async def _anthropic_text(system: str, user: str, max_tokens: int,
                     "messages": [{"role": "user", "content": user}],
                 },
             )
-            r.raise_for_status()
-            data = r.json()
+        if r.status_code != 200:
+            body = (r.text or "")[:300]
+            log.warning("anthropic_text_non200",
+                          status=r.status_code, body=body)
+            return None
+        data = r.json()
         return data["content"][0]["text"] if data.get("content") else None
     except Exception:
         log.exception("anthropic_text_failed")
