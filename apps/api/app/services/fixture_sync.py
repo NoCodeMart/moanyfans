@@ -367,6 +367,10 @@ async def _apply_live_update(
             await house_ai.hot_take_for_fixture(conn, fid)
         except Exception:
             log.exception("hot_take_hook_failed", fixture_id=fid)
+        try:
+            await house_ai.ft_chorus_for_fixture(conn, fid)
+        except Exception:
+            log.exception("ft_chorus_hook_failed", fixture_id=fid)
     return posted
 
 

@@ -182,6 +182,12 @@ async def run(pool: asyncpg.Pool) -> None:
                         log.info("hot_takes_swept", posted=posted)
                 except Exception:
                     log.exception("hot_takes_sweep_failed")
+                try:
+                    posted = await house_ai.ft_choruses_for_recent_ft(pool)
+                    if posted:
+                        log.info("ft_choruses_swept", posted=posted)
+                except Exception:
+                    log.exception("ft_chorus_sweep_failed")
 
             # Weekly RAGE_RANKER — Sunday evening, once per ISO week.
             now = datetime.now(UTC)

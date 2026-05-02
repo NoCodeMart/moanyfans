@@ -264,6 +264,58 @@ Rules:
 - British English."""
 
 
+def _goal_narrative(
+    *, scoring_side: str, prev_home: int, prev_away: int,
+    new_home: int, new_away: int, minute: int,
+) -> str:
+    """Tag the match-state narrative this goal sits inside, so the persona
+    can frame the take correctly. 2-1 after being 2-0 down is a 'comeback
+    brewing'; 4-0 in the 80th is 'humiliation'; 90'+ go-ahead goal is a
+    'late winner'. The model gets the tag plus a one-line description."""
+    total_before = prev_home + prev_away
+    total_after = new_home + new_away
+    is_home = scoring_side == "HOME"
+    scorer_prev = prev_home if is_home else prev_away
+    other_prev = prev_away if is_home else prev_home
+    scorer_new = new_home if is_home else new_away
+    other_new = new_away if is_home else new_home
+    diff_before = scorer_prev - other_prev
+    diff_after = scorer_new - other_new
+    late = minute >= 80
+
+    if total_before == 0:
+        return ("OPENER — first goal of the match, sets the tone. "
+                "Either dam-breaking relief or against-the-run-of-play smash-and-grab.")
+    if minute <= 15:
+        return ("EARLY_BLOW — goal in the opening 15 minutes. The conceding "
+                "team's whole game plan just got binned before they touched the ball.")
+    if diff_before <= -2 and diff_after == 0:
+        return (f"COMEBACK_COMPLETED — the scoring team were {abs(diff_before)} down "
+                "and have now drawn level. Mental scenes. The conceding fans are "
+                "already heading for the exits in horror.")
+    if diff_before <= -2 and diff_after == -1:
+        return (f"COMEBACK_STARTED — was {abs(diff_before)} down, now {abs(diff_after)} "
+                "down. Comeback is ON, the conceding fans are sweating, the away end "
+                "(or home end) believes again.")
+    if diff_before == -1 and diff_after == 0:
+        return ("EQUALISER — pulled level. Crowd erupts on one side, dies on the other. "
+                "Game has completely flipped, the momentum tag swings.")
+    if late and diff_before <= 0 and diff_after >= 1:
+        return ("LATE_WINNER — go-ahead goal after the 80th minute. Smash and grab. "
+                "Heartbreak for the conceding fans, scenes for the scoring fans.")
+    if late and diff_before <= -2:
+        return ("LATE_CONSOLATION — trailing badly, scored in the dying minutes. "
+                "Pride goal, nothing more. The conceding fans had already left.")
+    if diff_before >= 1:
+        return (f"LEAD_EXTENDED — were already winning by {diff_before}, now winning "
+                f"by {diff_after}. The game is dead, the conceding side is broken.")
+    if total_after >= 4:
+        return ("GOAL_FEST — match has now produced 4+ goals. This is open, mental, "
+                "anything could happen. Defensive shapes have left the building.")
+    return ("REGULAR_GOAL — mid-match goal at a normal scoreline. Frame it through "
+            "your assigned angle.")
+
+
 # Persona pool — each tuple is (handle, system_prompt). Goal-take rotation
 # cycles through this list by goal index so consecutive goals are written by
 # four completely different voices.
@@ -361,11 +413,28 @@ async def goal_take_for_fixture(
                      "you must not invent):\n" + "\n".join(f"- {f}" for f in facts)
                    if facts else "")
 
+    # Compute the running score before this goal so we can label the moment.
+    if scoring_side == "HOME":
+        prev_home, prev_away = home_score - 1, away_score
+    else:
+        prev_home, prev_away = home_score, away_score - 1
+    narrative = _goal_narrative(
+        scoring_side=scoring_side,
+        prev_home=prev_home, prev_away=prev_away,
+        new_home=home_score, new_away=away_score,
+        minute=minute,
+    )
+
     prompt = (
         f"{row['scorer_name']} just scored against {row['conceder_name']} on {minute}'. "
-        f"Score: {row['home_name']} {home_score}-{away_score} {row['away_name']} "
-        f"({row['competition']}). Refer to teams by these full names.\n\n"
-        f"YOUR ANGLE FOR THIS GOAL: {angle}"
+        f"Score went from {prev_home}-{prev_away} to {home_score}-{away_score}. "
+        f"({row['competition']}). Refer to teams by their full names: "
+        f"{row['home_name']} (home) and {row['away_name']} (away).\n\n"
+        f"MATCH STATE: {narrative}\n\n"
+        f"YOUR ANGLE FOR THIS GOAL: {angle}\n\n"
+        f"Your take MUST acknowledge the match state above (e.g. don't write "
+        f"'game over' if it's a comeback brewing; don't write 'game on' if "
+        f"the lead is now 4-0)."
         f"{facts_block}"
         f"\n\nDrop the take.{avoid_block}"
     )
@@ -597,4 +666,179 @@ async def hot_takes_for_recent_ft(pool: asyncpg.Pool) -> int:
         async with pool.acquire() as conn:
             if await hot_take_for_fixture(conn, r["id"]):
                 posted += 1
+    return posted
+
+
+async def ft_choruses_for_recent_ft(pool: asyncpg.Pool) -> int:
+    """Catch FT fixtures whose chorus didn't fire (e.g. deploy mid-match).
+
+    A chorus is 'incomplete' if any of the 5 personas hasn't logged its
+    ft_chorus row for that fixture yet. Re-running ft_chorus_for_fixture is
+    idempotent per persona.
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT f.id::text AS id
+              FROM fixtures f
+             WHERE f.status = 'FT'
+               AND f.kickoff_at >= now() - interval '4 hours'
+               AND (
+                 SELECT count(*) FROM house_ai_log
+                  WHERE kind='ft_chorus'
+                    AND ref LIKE 'ft_chorus:' || f.id::text || ':%'
+               ) < 5
+             LIMIT 10
+            """,
+        )
+    posted = 0
+    for r in rows:
+        async with pool.acquire() as conn:
+            posted += await ft_chorus_for_fixture(conn, r["id"])
+    return posted
+
+
+def _ft_narrative(home: int, away: int, home_name: str, away_name: str) -> str:
+    diff = abs(home - away)
+    if home == away:
+        if home + away >= 4:
+            return (f"FT_THRILLER_DRAW — {home}-{away} draw, four+ goals. "
+                    "Wide-open game, both keepers had a horror, both sets of fans "
+                    "fuming with their defence and beaming about their attack.")
+        if home + away == 0:
+            return ("FT_BORE_DRAW — 0-0. Nobody enjoyed that. Both sets of fans "
+                    "want their money back. Frame it as a waste of an afternoon.")
+        return (f"FT_HONOURS_EVEN — {home}-{away} draw. Even share, neither set "
+                "of fans satisfied, both feel they should have won.")
+    winner = home_name if home > away else away_name
+    loser = away_name if home > away else home_name
+    if diff >= 4:
+        return (f"FT_HUMILIATION — {winner} thrashed {loser} {home}-{away}. "
+                "Embarrassing, no excuse, fans of the losing side livid. "
+                "Lay into them.")
+    if diff >= 2:
+        return (f"FT_COMFORTABLE_WIN — {winner} beat {loser} {home}-{away} with "
+                "ease. Job done, deserved it. Frame the loser as outclassed.")
+    return (f"FT_NARROW_WIN — {winner} edged {loser} {home}-{away}. Could have "
+            "gone either way, decided by a moment. Frame it as fine margins.")
+
+
+_FT_PERSONA_INSTRUCTIONS: dict[str, str] = {
+    "HOT_TAKE_HARRY": (
+        "Drop your savage final-whistle verdict on the losing/drawing side. "
+        "Pure pub-mate venom, one or two sentences."),
+    "TACTICAL_TIM": (
+        "Tactical post-mortem of the whole match in one or two sentences. "
+        "Why the result happened — shape, midfield, pressing, transitions. "
+        "Patronising, never shouty."),
+    "NOSTALGIA_NORM": (
+        "Grumpy 'in my day' summary of the whole 90 minutes. Compare what "
+        "you just watched unfavourably to football of decades ago. "
+        "Mild language only."),
+    "DRUNK_DAVE": (
+        "ALL CAPS, typos, run-on. React to the final score like a man on his "
+        "tenth lager who's been watching since 12:30. Half coherent."),
+    "STAT_SHITHOUSE": (
+        "Drop one fabricated but plausible-sounding stat about the match or "
+        "the result. Deadpan, like a TV graphic. No insults — let the stat do "
+        "the work."),
+}
+
+
+async def ft_chorus_for_fixture(conn: asyncpg.Connection, fixture_id: str) -> int:
+    """Post a FULL-TIME persona chorus: every persona drops one final take.
+
+    Idempotent per-persona via house_ai_log entries keyed
+    'ft_chorus:{fixture_id}:{handle}' so a missed dispatch can resume without
+    duplicating posts. Returns the number of takes successfully posted.
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT f.competition, f.home_score, f.away_score,
+               ht.id::text AS home_id, ht.name AS home_name,
+               at.id::text AS away_id, at.name AS away_name,
+               ht.city AS home_city, at.city AS away_city,
+               ht.founded_year AS home_founded, at.founded_year AS away_founded
+          FROM fixtures f
+          JOIN teams ht ON ht.id = f.home_team_id
+          JOIN teams at ON at.id = f.away_team_id
+         WHERE f.id = $1 AND f.status = 'FT'
+        """,
+        fixture_id,
+    )
+    if not row or row["home_score"] is None or row["away_score"] is None:
+        return 0
+
+    narrative = _ft_narrative(
+        row["home_score"], row["away_score"],
+        row["home_name"], row["away_name"],
+    )
+    losing_team_id = (
+        row["away_id"] if row["home_score"] > row["away_score"]
+        else row["home_id"] if row["away_score"] > row["home_score"]
+        else None
+    )
+
+    facts: list[str] = []
+    if row["home_city"] and row["away_city"]:
+        facts.append(f"{row['home_name']} are from {row['home_city']}, "
+                       f"{row['away_name']} from {row['away_city']}.")
+        if row["home_city"].lower() == row["away_city"].lower():
+            facts.append("This was a CITY DERBY.")
+    facts_block = ("\n\nFACTS YOU CAN REFERENCE:\n" + "\n".join(f"- {f}" for f in facts)
+                   if facts else "")
+
+    posted = 0
+    prior_takes: list[str] = []
+
+    for handle, system_prompt in _GOAL_PERSONAS:
+        ref = f"ft_chorus:{fixture_id}:{handle}"
+        if await conn.fetchval(
+            "SELECT 1 FROM house_ai_log WHERE kind='ft_chorus' AND ref=$1", ref,
+        ):
+            continue
+
+        instr = _FT_PERSONA_INSTRUCTIONS.get(handle, "Drop a final-whistle take.")
+        avoid_block = ""
+        if prior_takes:
+            bullets = "\n".join(f"- {t}" for t in prior_takes)
+            avoid_block = (
+                "\n\nOther personas have already posted these final-whistle "
+                "takes — do NOT recycle their phrasing or angle:\n" + bullets
+            )
+
+        prompt = (
+            f"FULL TIME. {row['home_name']} {row['home_score']}-"
+            f"{row['away_score']} {row['away_name']} ({row['competition']}).\n\n"
+            f"MATCH STATE: {narrative}\n\n"
+            f"YOUR JOB: {instr}"
+            f"{facts_block}"
+            f"\n\nReturn JSON only.{avoid_block}"
+        )
+        data = await llm.complete_json(system_prompt, prompt, max_tokens=400, temperature=1.0)
+        if not data:
+            continue
+        text = str(data.get("text", "")).strip()[:480]
+        kind = str(data.get("kind", "BANTER")).upper()
+        if kind not in {"ROAST", "MOAN", "BANTER"}:
+            kind = "BANTER"
+        if not text:
+            continue
+
+        moan_id = await _post_moan(
+            conn, handle, losing_team_id, text, kind,
+            fixture_id=fixture_id, match_minute=90, side=None,
+        )
+        if not moan_id:
+            continue
+        await conn.execute(
+            "INSERT INTO house_ai_log (kind, ref) VALUES ('ft_chorus', $1) "
+            "ON CONFLICT DO NOTHING",
+            ref,
+        )
+        prior_takes.append(text)
+        posted += 1
+
+    if posted:
+        log.info("ft_chorus_posted", fixture_id=fixture_id, count=posted)
     return posted
