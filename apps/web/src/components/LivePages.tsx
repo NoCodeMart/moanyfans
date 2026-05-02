@@ -210,7 +210,7 @@ function FixtureStrip({
             <button key={f.id} type="button" onClick={() => onPick(f.id)}
               disabled={f.status === 'SCHEDULED'}
               style={{
-                minWidth: 240, padding: 12,
+                width: 220, flexShrink: 0, padding: 12,
                 background: isActive ? 'var(--ink)' : 'var(--paper)',
                 color: isActive ? 'var(--cream)' : 'var(--ink)',
                 border: `3px solid ${isLive ? 'var(--red)' : 'var(--ink)'}`,
@@ -218,10 +218,12 @@ function FixtureStrip({
                 cursor: f.status === 'SCHEDULED' ? 'default' : 'pointer',
                 textAlign: 'left',
                 opacity: f.status === 'SCHEDULED' ? 0.7 : 1,
+                boxSizing: 'border-box',
               }}>
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
-                marginBottom: 4, opacity: 0.7,
+                marginBottom: 6, opacity: 0.7,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
                 {f.competition.toUpperCase()}
                 {isLive && f.period === 'HT' && (
@@ -235,12 +237,19 @@ function FixtureStrip({
                 )}
                 {f.status === 'FT' && <span style={{ marginLeft: 6 }}>FT</span>}
               </div>
-              <div style={{ fontSize: 18, lineHeight: 1.05 }}>
-                {displayTeamName(f.home_team)}
-                {f.home_score != null && <strong style={{ marginLeft: 6 }}>{f.home_score}</strong>}
-                <span style={{ opacity: 0.5, margin: '0 6px' }}>vs</span>
-                {f.away_score != null && <strong style={{ marginRight: 6 }}>{f.away_score}</strong>}
-                {displayTeamName(f.away_team)}
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto',
+                rowGap: 2, columnGap: 8, alignItems: 'baseline',
+                fontSize: 15, lineHeight: 1.15,
+              }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {displayTeamName(f.home_team)}
+                </span>
+                <strong>{f.home_score ?? ''}</strong>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {displayTeamName(f.away_team)}
+                </span>
+                <strong>{f.away_score ?? ''}</strong>
               </div>
               {f.status === 'SCHEDULED' && (
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.6, marginTop: 4 }}>
