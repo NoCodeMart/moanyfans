@@ -25,8 +25,7 @@ const SIDE_COLORS: Record<Side, string> = {
 
 export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose: () => void }) {
   const fixture = useFixture(fixtureId);
-  const [filterSide, setFilterSide] = useState<Side | null>(null);
-  const thread = useFixtureThread(fixtureId, filterSide ?? undefined);
+  const thread = useFixtureThread(fixtureId);
 
   const f = fixture.data;
   const liveStatus = f?.status ?? 'SCHEDULED';
@@ -58,40 +57,6 @@ export function LiveThread({ fixtureId, onClose }: { fixtureId: string; onClose:
         competition={f.competition}
         onBack={onClose}
       />
-
-      <div style={{
-        display: 'flex', gap: 6, padding: '12px 0',
-        flexWrap: 'wrap', borderBottom: '2px solid var(--ink)',
-      }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em',
-                        opacity: 0.6, marginRight: 8, alignSelf: 'center' }}>FILTER:</span>
-        {(['ALL', 'HOME', 'AWAY', 'NEUTRAL'] as const).map(opt => {
-          const active = (opt === 'ALL' && filterSide === null) || filterSide === opt;
-          const colour = opt === 'ALL' ? 'var(--ink)'
-            : opt === 'HOME' ? f.home_team.primary_color
-            : opt === 'AWAY' ? f.away_team.primary_color
-            : 'var(--ink)';
-          return (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setFilterSide(opt === 'ALL' ? null : opt as Side)}
-              style={{
-                fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: '0.05em',
-                padding: '6px 12px',
-                background: active ? colour : 'var(--paper)',
-                color: active ? 'var(--cream)' : 'var(--ink)',
-                border: `2px solid ${colour}`,
-                cursor: 'pointer',
-              }}
-            >
-              {opt === 'HOME' ? `HOME (${displayTeam(f.home_team)})`
-                : opt === 'AWAY' ? `AWAY (${displayTeam(f.away_team)})`
-                : opt}
-            </button>
-          );
-        })}
-      </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '12px 0' }}>
         {sortedItems.length === 0 && (
@@ -366,7 +331,29 @@ const ScoreBanner = memo(function ScoreBanner({
   );
 });
 
-function ThreadRow({
+// Memo'd so the 5s thread polling doesn't repaint every row when nothing
+// changed. Items are referentially new each refetch but their props are
+// shallow-comparable primitives + a `item` ref that stays stable per id
+// in our comparator below.
+const ThreadRow = memo(_ThreadRow, (prev, next) => {
+  // Compare reaction counts and your_reaction (the only fields that flip
+  // on poll). Other fields are immutable per item id.
+  if (prev.item.moan_id !== next.item.moan_id) return false;
+  if (prev.item.type !== next.item.type) return false;
+  if (prev.item.text !== next.item.text) return false;
+  if (prev.item.laughs !== next.item.laughs) return false;
+  if (prev.item.agrees !== next.item.agrees) return false;
+  if (prev.item.cope !== next.item.cope) return false;
+  if (prev.item.ratio !== next.item.ratio) return false;
+  if (prev.item.your_reaction !== next.item.your_reaction) return false;
+  if (prev.homeShort !== next.homeShort) return false;
+  if (prev.awayShort !== next.awayShort) return false;
+  if (prev.homePrimary !== next.homePrimary) return false;
+  if (prev.awayPrimary !== next.awayPrimary) return false;
+  return true;
+});
+
+function _ThreadRow({
   item, homeShort, awayShort, homePrimary, awayPrimary,
 }: {
   item: import('../lib/api').ThreadItem;
