@@ -298,38 +298,46 @@ function ScoreBanner({
     : 'SCHEDULED';
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-      alignItems: 'center', gap: 12,
-      padding: 16, border: '4px solid var(--ink)',
+      display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+      alignItems: 'center', gap: 'clamp(6px, 2vw, 12px)',
+      padding: 'clamp(10px, 3vw, 16px)', border: '4px solid var(--ink)',
       background: 'var(--paper)',
       position: 'sticky', top: 0, zIndex: 5,
     } as CSSProperties}>
-      <div style={{ textAlign: 'right' }}>
+      <div style={{ textAlign: 'right', minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
                        letterSpacing: '0.15em', opacity: 0.55 }}>HOME</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 36,
-                       color: homePrimary, lineHeight: 1 }}>{homeShort}</div>
+        <div style={{ fontFamily: 'var(--font-display)',
+                       fontSize: 'clamp(18px, 5.5vw, 36px)',
+                       color: homePrimary, lineHeight: 1.1,
+                       wordBreak: 'break-word', hyphens: 'auto' }}>{homeShort}</div>
       </div>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
                        letterSpacing: '0.15em', marginBottom: 2,
+                       whiteSpace: 'nowrap',
                        color: period === 'HT' ? 'var(--blue)'
                               : status === 'LIVE' ? 'var(--red)' : 'var(--ink)' }}>
           {liveLabel}
         </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 48, lineHeight: 1 }}>
+        <div style={{ fontFamily: 'var(--font-display)',
+                       fontSize: 'clamp(32px, 10vw, 48px)', lineHeight: 1,
+                       whiteSpace: 'nowrap' }}>
           {homeScore ?? '—'} <span style={{ opacity: 0.4 }}>·</span> {awayScore ?? '—'}
         </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
-                       letterSpacing: '0.1em', opacity: 0.55, marginTop: 4 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+                       letterSpacing: '0.1em', opacity: 0.55, marginTop: 4,
+                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {competition}
         </div>
       </div>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10,
                        letterSpacing: '0.15em', opacity: 0.55 }}>AWAY</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 36,
-                       color: awayPrimary, lineHeight: 1 }}>{awayShort}</div>
+        <div style={{ fontFamily: 'var(--font-display)',
+                       fontSize: 'clamp(18px, 5.5vw, 36px)',
+                       color: awayPrimary, lineHeight: 1.1,
+                       wordBreak: 'break-word', hyphens: 'auto' }}>{awayShort}</div>
       </div>
       <button
         type="button"
