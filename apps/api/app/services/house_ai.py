@@ -448,8 +448,12 @@ async def goal_take_for_fixture(
     if not text:
         return False
 
+    # Tag with the SCORING team — the post is talking ABOUT this goal so
+    # the natural perspective is the team that just scored. Tagging with
+    # the conceder confused readers ('Fleetwood' chip on a take written
+    # from a Milton Keynes fan's POV).
     moan_id = await _post_moan(
-        conn, handle, conceding_team_id, text, kind,
+        conn, handle, scoring_team_id, text, kind,
         fixture_id=fixture_id, match_minute=minute, side=scoring_side,
     )
     if not moan_id:
